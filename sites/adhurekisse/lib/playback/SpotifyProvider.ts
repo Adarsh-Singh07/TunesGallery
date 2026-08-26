@@ -186,24 +186,53 @@ export class SpotifyProvider implements PlaybackProvider {
 
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0 });
 
-    const response = await fetch(
-      `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    let response: Response | null = null;
+    let attempts = 0;
+    
+    // Retry up to 3 times for 404 errors (device not yet active on Spotify's backend)
+    while (attempts < 3) {
+      response = await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${this.deviceId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            uris: [`spotify:track:${spotifyTrackId}`],
+          }),
         },
-        body: JSON.stringify({
-          uris: [`spotify:track:${spotifyTrackId}`],
-        }),
-      },
-    );
+      );
 
-    if (!response.ok && response.status !== 204) {
-      const err = await response.text();
+      if (response.status === 404) {
+        attempts++;
+        // Attempt to force the device to become active by transferring playback
+        try {
+          await fetch("https://api.spotify.com/v1/me/player", {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              device_ids: [this.deviceId],
+              play: false,
+            }),
+          });
+        } catch (e) {
+          // ignore transfer errors
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
+      break;
+    }
+
+    if (!response || (!response.ok && response.status !== 204)) {
+      const err = await response?.text();
       this.patch({ hasError: true, errorMessage: `Spotify API error: ${err}`, isLoading: false });
-      throw new Error(err);
+      throw new Error(err || "Failed to play Spotify track.");
     }
   }
 
