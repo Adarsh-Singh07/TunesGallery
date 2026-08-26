@@ -1,0 +1,16 @@
+{
+  "name": "Adhure Kisse",
+  "short_name": "AdhureKisse",
+  "description": "A cinematic music room experience.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0814",
+  "theme_color": "#0a0814",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

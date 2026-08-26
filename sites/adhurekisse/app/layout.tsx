@@ -18,6 +18,19 @@ export const metadata: Metadata = {
     description: site.seo.description,
     images: site.seo.ogImage ? [site.seo.ogImage] : [],
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "AdhureKisse",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0a0814",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

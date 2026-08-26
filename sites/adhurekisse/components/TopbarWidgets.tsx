@@ -4,16 +4,34 @@ import { useState, useEffect } from "react";
 import { Cloud } from "lucide-react";
 
 export function LiveListeners() {
-  const [listeners, setListeners] = useState(24);
+  const [listeners, setListeners] = useState(1);
 
   useEffect(() => {
-    // Simulate live listeners fluctuating slightly for realism
-    const interval = setInterval(() => {
-      setListeners(prev => {
-        const change = Math.floor(Math.random() * 5) - 2; // -2 to +2
-        return Math.max(12, Math.min(89, prev + change));
-      });
-    }, 8000);
+    // Generate a consistent user ID for this session
+    let userId = sessionStorage.getItem("adhure_user_id");
+    if (!userId) {
+      userId = Math.random().toString(36).substring(2);
+      sessionStorage.setItem("adhure_user_id", userId);
+    }
+
+    const ping = async () => {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "ping", userId })
+        });
+        const data = await res.json();
+        if (data.listeners) {
+          setListeners(data.listeners);
+        }
+      } catch (e) {
+        // fail silently
+      }
+    };
+
+    ping();
+    const interval = setInterval(ping, 5000);
     return () => clearInterval(interval);
   }, []);
 

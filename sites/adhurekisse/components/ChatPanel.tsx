@@ -25,7 +25,7 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load name from local storage on mount
+  // Load name from local storage and sync messages
   useEffect(() => {
     const savedName = localStorage.getItem("adhure_chat_name");
     if (savedName) {
@@ -33,11 +33,30 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
       setIsNameSet(true);
     }
     
-    // Some dummy messages to populate the room
-    setMessages([
-      { id: "1", sender: "Adarsh", text: "This theme looks crazy at night.", timestamp: new Date(Date.now() - 1000 * 60 * 5), isSelf: false },
-      { id: "2", sender: "Riya", text: "Listening to K.K. just hits different...", timestamp: new Date(Date.now() - 1000 * 60 * 2), isSelf: false },
-    ]);
+    let userId = sessionStorage.getItem("adhure_user_id");
+    if (!userId) {
+      userId = Math.random().toString(36).substring(2);
+      sessionStorage.setItem("adhure_user_id", userId);
+    }
+    
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch("/api/chat");
+        const data = await res.json();
+        if (data.messages) {
+          const formatted = data.messages.map((m: any) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+            isSelf: m.sender === savedName || m.sender === localStorage.getItem("adhure_chat_name")
+          }));
+          setMessages(formatted);
+        }
+      } catch (e) {}
+    };
+    
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -51,39 +70,30 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
     if (!name.trim()) return;
     localStorage.setItem("adhure_chat_name", name.trim());
     setIsNameSet(true);
+    // Refresh messages so we own our old ones
+    setMessages(prev => prev.map(m => ({ ...m, isSelf: m.sender === name.trim() })));
   };
 
   const handleChangeName = () => {
     setIsNameSet(false);
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !isNameSet) return;
     
-    const newMsg: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      sender: name,
-      text: inputText,
-      timestamp: new Date(),
-      isSelf: true
-    };
+    const textToSend = inputText;
+    setInputText(""); // optimistically clear
     
-    setMessages(prev => [...prev, newMsg]);
-    setInputText("");
-    
-    // Simulate someone replying occasionally
-    if (Math.random() > 0.5) {
-      setTimeout(() => {
-        setMessages(prev => [...prev, {
-          id: Math.random().toString(36).substr(2, 9),
-          sender: "Anonymous",
-          text: "Yeah, true that.",
-          timestamp: new Date(),
-          isSelf: false
-        }]);
-      }, 3000);
-    }
+    const userId = sessionStorage.getItem("adhure_user_id");
+    try {
+      await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "message", sender: name, text: textToSend, userId })
+      });
+      // the polling interval will catch it, or we can optimistic append
+    } catch(e) {}
   };
 
   return (

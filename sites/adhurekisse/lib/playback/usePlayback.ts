@@ -62,9 +62,13 @@ export function usePlayback(songs: Song[]): {
     mgr.markSpotifyConnected(isSpotifyConnected());
 
     const unsub = mgr.subscribe((s) => setState(s));
+    const unsubTime = mgr.subscribeTime((currentTime, duration) => {
+      setState((prev) => ({ ...prev, currentTime, duration }));
+    });
 
     return () => {
       unsub();
+      unsubTime();
       mgr.destroy();
       managerRef.current = null;
     };
