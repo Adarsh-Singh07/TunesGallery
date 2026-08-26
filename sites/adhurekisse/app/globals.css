@@ -1219,11 +1219,19 @@ input { font: inherit; }
   transform: scale(1.1);
 }
 
+.fixed-bg {
+  inset: 0 !important;
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  background-attachment: fixed;
+}
+
 .ambient-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, transparent 0%, rgba(10,10,10,0.8) 100%),
-              linear-gradient(to bottom, rgba(10,10,10,0.2) 0%, rgba(10,10,10,0.9) 100%);
+  background: radial-gradient(circle at center, transparent 0%, rgba(10,10,10,0.7) 100%),
+              linear-gradient(to bottom, rgba(10,10,10,0.1) 0%, rgba(10,10,10,0.95) 100%);
 }
 
 

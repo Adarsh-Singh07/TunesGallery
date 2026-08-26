@@ -100,7 +100,7 @@ export default function MusicRoom() {
   return (
     <main className="room" aria-label="adhurekisse music room">
       {/* ── Ambient ─────────────────────────────────── */}
-      <AmbientBackground accent={accent} coverSrc={song?.artwork?.cover} />
+      <AmbientBackground />
 
       {/* "?"? YouTube player widget (always in DOM when YT is provider) "?"?"?"?"? */}
       <YouTubeWidget
