@@ -318,6 +318,7 @@ input { font: inherit; }
   color: var(--foreground, #e8e4f2);
   display: block;
   transition: color 0.9s ease;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .brand-line-2 {
@@ -331,6 +332,7 @@ input { font: inherit; }
   display: block;
   opacity: 0.88;
   transition: color 0.9s ease;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .brand-tagline {
@@ -367,6 +369,7 @@ input { font: inherit; }
   color: var(--tq, #b0a8c8);
   letter-spacing: 0.01em;
   transition: color 0.8s ease;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 .quote-attribution {
@@ -378,6 +381,7 @@ input { font: inherit; }
   gap: 6px;
   align-items: center;
   transition: color 0.8s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .quote-dash { opacity: 0.6; }
@@ -570,6 +574,7 @@ input { font: inherit; }
   color: var(--ts, #c8c0e0);
   margin-bottom: 10px;
   transition: color 0.8s ease;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .song-info-artist {
@@ -580,6 +585,7 @@ input { font: inherit; }
   line-height: 1.5;
   letter-spacing: 0.02em;
   transition: color 0.8s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .song-info-separator { color: var(--muted, #8078a0); }
@@ -856,6 +862,7 @@ input { font: inherit; }
   letter-spacing: -0.04em;
   color: var(--foreground, #e8e4f2);
   transition: color 0.8s ease;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 .search-box {
@@ -1483,6 +1490,7 @@ input { font: inherit; }
   letter-spacing: -0.04em;
   line-height: 0.9;
   color: var(--foreground, #e8e4f2);
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .entry-tagline {
