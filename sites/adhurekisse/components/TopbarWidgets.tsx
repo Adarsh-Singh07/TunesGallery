@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Cloud } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export function LiveListeners() {
