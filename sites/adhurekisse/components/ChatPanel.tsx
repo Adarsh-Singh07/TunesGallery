@@ -41,15 +41,15 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
     }
 
     // 1. Fetch history
-    const fetchHistory = async () => {
-      const { data } = await supabase
+    const fetchHistory = async (client: any) => {
+      const { data } = await client
         .from('messages')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(60);
       
       if (data) {
-        setMessages(data.reverse().map(m => ({
+        setMessages(data.reverse().map((m: any) => ({
           id: m.id,
           sender: m.sender,
           text: m.text,
@@ -58,7 +58,7 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
         })));
       }
     };
-    fetchHistory();
+    fetchHistory(supabase);
 
     // 2. Subscribe to realtime inserts
     const channel = supabase.channel('chat-room')
