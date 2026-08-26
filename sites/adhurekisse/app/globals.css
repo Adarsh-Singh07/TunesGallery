@@ -42,11 +42,6 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
   background-color: var(--background);
-  background-image: url('/background.png');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
 button {
