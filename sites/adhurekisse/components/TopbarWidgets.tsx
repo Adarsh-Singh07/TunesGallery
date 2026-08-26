@@ -35,7 +35,7 @@ export function LiveListeners() {
       });
 
     return () => {
-      supabase.removeChannel(room);
+      supabase?.removeChannel(room);
     };
   }, []);
 

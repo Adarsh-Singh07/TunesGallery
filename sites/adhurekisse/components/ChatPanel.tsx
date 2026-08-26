@@ -75,7 +75,7 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     };
   }, []);
 
