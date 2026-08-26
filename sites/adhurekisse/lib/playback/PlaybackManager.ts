@@ -267,8 +267,8 @@ export class PlaybackManager {
     // Cue the first song in advance so buffering starts, reducing the 5-sec wait to 1-sec.
     const song = this.currentSong;
     const provider = this.activeProvider;
-    if (song && provider && typeof (provider as any).cue === "function") {
-      await (provider as any).cue(song.youtubeId);
+    if (song && provider && typeof (provider as any).cue === "function" && song.playback.youtubeId) {
+      await (provider as any).cue(song.playback.youtubeId);
     }
   }
 
