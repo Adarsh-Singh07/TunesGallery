@@ -158,10 +158,7 @@ export class YouTubeProvider implements PlaybackProvider {
   async cue(youtubeId: string): Promise<void> {
     if (!this.player) return;
     if (typeof this.player.cueVideoById === "function") {
-      this.player.cueVideoById({
-        videoId: youtubeId,
-        suggestedQuality: "small"
-      });
+      this.player.cueVideoById(youtubeId);
     }
   }
 
