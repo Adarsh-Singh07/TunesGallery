@@ -13,7 +13,7 @@ const AmbientBackground = memo(function AmbientBackground() {
           alt="Atmospheric Background"
           fill
           priority
-          style={{ objectFit: "cover", objectPosition: "center", zIndex: -1 }}
+          style={{ objectFit: "cover", objectPosition: "center" }}
           quality={100}
         />
         <div className="ambient-overlay" />

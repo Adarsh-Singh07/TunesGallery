@@ -41,6 +41,12 @@ body {
   font-family: var(--font-body);
   min-height: 100dvh;
   overflow-x: hidden;
+  background-color: var(--background);
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 button {
@@ -1206,26 +1212,9 @@ input { font: inherit; }
   inset: 0;
   z-index: -2;
   overflow: hidden;
-  background: var(--bg);
 }
 
-.ambient-image-layer {
-  position: absolute;
-  inset: -10%;
-  background-size: cover;
-  background-position: center;
-  filter: blur(80px) saturate(150%);
-  opacity: 0.35;
-  transform: scale(1.1);
-}
 
-.fixed-bg {
-  inset: 0 !important;
-  filter: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-  background-attachment: fixed;
-}
 
 .ambient-overlay {
   position: absolute;
