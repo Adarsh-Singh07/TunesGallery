@@ -359,7 +359,7 @@ export class PlaybackManager {
         artist: song.artist,
         album: song.movie,
         artwork: [
-          { src: song.coverUrl ? `https://adhure-kisse.adarshsingh.in${song.coverUrl}` : "https://adhure-kisse.adarshsingh.in/favicon.ico", sizes: "512x512", type: "image/jpeg" }
+          { src: song.artwork?.cover ? `https://adhure-kisse.adarshsingh.in${song.artwork.cover}` : "https://adhure-kisse.adarshsingh.in/favicon.ico", sizes: "512x512", type: "image/jpeg" }
         ]
       });
 
