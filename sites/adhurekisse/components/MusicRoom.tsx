@@ -11,6 +11,7 @@ import { getThemeForSong, type CinematicTheme, THEMES, THEME_ORDER, type ThemeId
 
 import { LiveListeners, LiveTimeWeather } from "./TopbarWidgets";
 import ChatPanel from "./ChatPanel";
+import { supabase } from "../lib/supabase";
 
 import { usePlayback } from "../lib/playback/usePlayback";
 import {
@@ -73,6 +74,8 @@ export default function MusicRoom() {
   // Derive current song
   const song = songs[state.currentIndex] ?? null;
 
+  const [listeners, setListeners] = useState(1);
+
   // On mount: check if session entered previously
   useEffect(() => {
     if (hasSessionEntered()) {
@@ -80,6 +83,38 @@ export default function MusicRoom() {
       const ls = loadListeningState();
       if (ls) setResumeState(ls);
     }
+  }, []);
+
+  // Supabase Presence for live listening count
+  useEffect(() => {
+    if (!supabase) return;
+
+    let userId = sessionStorage.getItem("adhure_user_id");
+    if (!userId) {
+      userId = Math.random().toString(36).substring(2);
+      sessionStorage.setItem("adhure_user_id", userId);
+    }
+
+    const room = supabase.channel('online-users');
+
+    room
+      .on('presence', { event: 'sync' }, () => {
+        const newState = room.presenceState();
+        let count = 0;
+        for (const key in newState) {
+          count += newState[key].length;
+        }
+        setListeners(Math.max(1, count));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await room.track({ user: userId, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase?.removeChannel(room);
+    };
   }, []);
 
   // Update auto theme when song changes (only if not manual)
@@ -249,7 +284,7 @@ export default function MusicRoom() {
           {/* LEFT: vinyl record */}
           <div className="hero-left">
             <div className="mobile-live-listeners">
-              <LiveListeners />
+              <LiveListeners count={listeners} />
             </div>
             <motion.div
               initial={{ opacity: 0, scale: 0.90 }}
@@ -391,7 +426,7 @@ export default function MusicRoom() {
           {/* Live Listeners & Brand Mark */}
           <div className="mobile-brand-section">
             <div className="mobile-listeners">
-              <LiveListeners />
+              <LiveListeners count={listeners} />
             </div>
             <div className="mobile-brand-title">
               <span className="mobile-brand-1">ADHURE</span>
