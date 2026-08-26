@@ -21,7 +21,6 @@ export default function YouTubeWidget({ activeProvider, isPlaying }: Props) {
 
   return (
     <div
-      id={YT_CONTAINER_ID}
       style={{
         position: "absolute",
         width: "1px",
@@ -33,6 +32,13 @@ export default function YouTubeWidget({ activeProvider, isPlaying }: Props) {
         zIndex: -1
       }}
       aria-hidden="true"
-    />
+    >
+      {/* 
+        IMPORTANT: The YouTube IFrame API *replaces* the target div with an iframe. 
+        It must be wrapped in a parent div so React doesn't lose the root DOM node 
+        of this component, which causes "NotFoundError: Failed to execute 'insertBefore'" 
+      */}
+      <div id={YT_CONTAINER_ID} />
+    </div>
   );
 }
