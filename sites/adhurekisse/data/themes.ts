@@ -15,6 +15,7 @@ export interface CinematicTheme {
   id: ThemeId;
   label: string;
   bgUrl: string;
+  bgUrlMobile?: string;
   // CSS custom property values applied via data-theme
   primary: string;       // main text
   secondary: string;     // song title
