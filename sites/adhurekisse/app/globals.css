@@ -1599,3 +1599,236 @@ input { font: inherit; }
   }
 }
 
+
+/* Layout splitting visibility */
+.mobile-only-layout {
+  display: none;
+}
+.desktop-only-layout {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .desktop-only-layout {
+    display: none !important;
+  }
+  
+  .mobile-only-layout {
+    display: flex !important;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden; /* Strict lock screen, no page scrolling! */
+    position: relative;
+    padding: 0;
+  }
+
+  /* Compact Topbar */
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--tb);
+    flex-shrink: 0;
+  }
+
+  .mobile-header-left {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-btn {
+    background: none;
+    border: none;
+    color: var(--ts);
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  .mobile-btn:active {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Content wrapper */
+  .mobile-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px 8px;
+    overflow: hidden;
+    gap: 8px;
+  }
+
+  /* Brand Mark Section */
+  .mobile-brand-section {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .mobile-listeners {
+    position: absolute;
+    top: -4px;
+    left: 0;
+    font-size: 9px;
+  }
+
+  .mobile-brand-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .mobile-brand-1 {
+    font-family: var(--font-display);
+    font-size: 26px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--tp);
+  }
+
+  .mobile-brand-2 {
+    font-family: var(--font-body);
+    font-size: 20px;
+    line-height: 0.9;
+    font-style: italic;
+    color: var(--ts);
+    margin-top: -2px;
+  }
+
+  /* Disc Wrap */
+  .mobile-disc-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-height: 150px; /* Force it small so it fits */
+    flex-shrink: 0;
+  }
+
+  .mobile-disc-wrap .record-scene {
+    width: 130px !important;
+    height: 130px !important;
+  }
+
+  /* Player section */
+  .mobile-player-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .mobile-song-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2px;
+  }
+
+  .mobile-song-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--tp);
+    font-weight: 500;
+  }
+
+  .mobile-song-artist {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--tm);
+    margin-top: 2px;
+  }
+
+  .mobile-player-section .player-controls {
+    width: 100%;
+    max-width: 320px;
+    gap: 8px !important;
+  }
+
+  .mobile-player-section .controls-row {
+    gap: 14px !important;
+  }
+
+  .mobile-player-section .ctrl-btn {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .mobile-player-section .ctrl-play {
+    width: 46px !important;
+    height: 46px !important;
+  }
+
+  /* Quote Display */
+  .mobile-quote-section {
+    width: 100%;
+    max-width: 320px;
+    flex-shrink: 0;
+  }
+
+  .mobile-quote-section .quote-container {
+    padding: 8px 12px !important;
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+  }
+
+  /* Providers Selector */
+  .mobile-providers-section {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .mobile-providers-section .provider-selector {
+    padding: 4px 12px !important;
+    font-size: 10px !important;
+    gap: 8px !important;
+  }
+
+  /* Footer */
+  .mobile-footer {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: var(--tm);
+    border-top: 1px solid var(--tb);
+    flex-shrink: 0;
+  }
+
+  .chat-panel {
+    top: auto;
+    bottom: 40px !important;
+    right: 50% !important;
+    transform: translateX(50%) !important;
+    width: 92vw !important;
+    height: 260px !important; /* Shrunk so it does not overlap everything */
+    border-radius: 16px !important;
+  }
+}
+

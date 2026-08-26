@@ -208,108 +208,215 @@ export default function MusicRoom() {
         )}
       </AnimatePresence>
 
-      {/* ── Top bar ───────────────────────────────────────────── */}
-      <header className="topbar">
-        <div className="topbar-brand">
-          <LiveTimeWeather />
-        </div>
-
-        <div className="topbar-actions">
-          <AtmosphereSelector
-            currentMode={manualThemeId}
-            onSelect={setManualThemeId}
-          />
-          <button
-            className="archive-btn chat-btn"
-            onClick={() => setChatOpen(true)}
-            aria-label="Open Chat"
-            aria-expanded={chatOpen}
-            title="Chat"
-          >
-            <MessageCircle size={17} strokeWidth={1.5} />
-            <span className="topbar-archive-label">CHAT</span>
-          </button>
-          <button
-            className="archive-btn"
-            onClick={() => setLibraryOpen(true)}
-            aria-label="Open Archive"
-            aria-expanded={libraryOpen}
-            title="Archive"
-          >
-            <Disc3 size={17} strokeWidth={1.5} className="spin-slow" />
-            <span className="topbar-archive-label">ARCHIVE</span>
-          </button>
-        </div>
-      </header>
-
-      {/* ── Hero — 3-column editorial grid ───────────────────── */}
-      <section className="hero" aria-label="Music player">
-
-        {/* LEFT: vinyl record */}
-        <div className="hero-left">
-          <div className="mobile-live-listeners">
-            <LiveListeners />
+      {/* ── DESKTOP LAYOUT (Hidden on mobile) ────────────────────────── */}
+      <div className="desktop-only-layout">
+        {/* ── Top bar ───────────────────────────────────────────── */}
+        <header className="topbar">
+          <div className="topbar-brand">
+            <LiveTimeWeather />
           </div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.90 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.10 }}
-          >
-            <AnimatePresence mode="popLayout">
-              <motion.div
-                key={song?.id}
-                initial={{ opacity: 0, scale: 0.94, rotateY: -6 }}
-                animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                exit={{ opacity: 0, scale: 0.96, rotateY: 6 }}
-                transition={{ duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
-              >
-                <Record
-                  coverSrc={song?.artwork?.cover}
-                  songId={song?.id ?? "00"}
-                  artistLabel={song?.artist ?? ""}
+
+          <div className="topbar-actions">
+            <AtmosphereSelector
+              currentMode={manualThemeId}
+              onSelect={setManualThemeId}
+            />
+            <button
+              className="archive-btn chat-btn"
+              onClick={() => setChatOpen(true)}
+              aria-label="Open Chat"
+              aria-expanded={chatOpen}
+              title="Chat"
+            >
+              <MessageCircle size={17} strokeWidth={1.5} />
+              <span className="topbar-archive-label">CHAT</span>
+            </button>
+            <button
+              className="archive-btn"
+              onClick={() => setLibraryOpen(true)}
+              aria-label="Open Archive"
+              aria-expanded={libraryOpen}
+              title="Archive"
+            >
+              <Disc3 size={17} strokeWidth={1.5} className="spin-slow" />
+              <span className="topbar-archive-label">ARCHIVE</span>
+            </button>
+          </div>
+        </header>
+
+        {/* ── Hero — 3-column editorial grid ───────────────────── */}
+        <section className="hero" aria-label="Music player">
+          {/* LEFT: vinyl record */}
+          <div className="hero-left">
+            <div className="mobile-live-listeners">
+              <LiveListeners />
+            </div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.90 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.10 }}
+            >
+              <AnimatePresence mode="popLayout">
+                <motion.div
+                  key={song?.id}
+                  initial={{ opacity: 0, scale: 0.94, rotateY: -6 }}
+                  animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, rotateY: 6 }}
+                  transition={{ duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
+                >
+                  <Record
+                    coverSrc={song?.artwork?.cover}
+                    songId={song?.id ?? "00"}
+                    artistLabel={song?.artist ?? ""}
+                    trackNumber={padTrack(state.currentIndex + 1)}
+                    isPlaying={state.isPlaying}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          </div>
+
+          {/* CENTER: brand mark + quote */}
+          <div className="hero-center">
+            <motion.div
+              className="brand-mark"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
+            >
+              <span className="brand-line-1">ADHURE</span>
+              <span className="brand-line-2">kisse</span>
+              <p className="brand-tagline">{site.tagline}</p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, delay: 0.4 }}
+            >
+              <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
+            </motion.div>
+          </div>
+
+          {/* RIGHT: song info + controls */}
+          <div className="hero-right">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.15 }}
+            >
+              {song && (
+                <SongInfo
+                  song={song}
                   trackNumber={padTrack(state.currentIndex + 1)}
-                  isPlaying={state.isPlaying}
+                  totalTracks={songs.length}
                 />
-              </motion.div>
-            </AnimatePresence>
-          </motion.div>
-        </div>
+              )}
 
-        {/* CENTER: brand mark + quote */}
-        <div className="hero-center">
-          <motion.div
-            className="brand-mark"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            <span className="brand-line-1">ADHURE</span>
-            <span className="brand-line-2">kisse</span>
-            <p className="brand-tagline">{site.tagline}</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.2, delay: 0.4 }}
-          >
-            <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
-          </motion.div>
-        </div>
-
-        {/* RIGHT: song info + controls */}
-        <div className="hero-right">
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.15 }}
-          >
-            {song && (
-              <SongInfo
-                song={song}
-                trackNumber={padTrack(state.currentIndex + 1)}
-                totalTracks={songs.length}
+              <PlayerControls
+                isPlaying={state.isPlaying}
+                currentTime={state.currentTime}
+                duration={state.duration}
+                volume={state.volume}
+                isMuted={state.isMuted}
+                isLoading={state.isLoading}
+                shuffle={state.shuffle}
+                repeat={state.repeat}
+                hasSong={!!song}
+                hasPlaybackRef={hasRef}
+                errorMessage={state.errorMessage}
+                controls={controls}
+                onPlayAction={() => {
+                  if (audioRef.current && !state.isPlaying) {
+                    audioRef.current.play().catch(() => {});
+                  }
+                }}
               />
+
+              <ProviderSelector
+                activeProvider={state.activeProvider}
+                spotifyConnected={state.spotifyConnected}
+                spotifyConnecting={state.spotifyConnecting}
+                hasYouTubeId={state.hasYouTubeId}
+                hasSpotifyId={state.hasSpotifyId}
+                onSwitch={controls.switchProvider}
+                onConnectSpotify={controls.connectSpotify}
+                onDisconnectSpotify={controls.disconnectSpotify}
+              />
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ── Footer ───────────────────────────────────────────── */}
+        <footer className="ticker" aria-label="Collection info">
+          <span>{site.footer.collectionLabel}</span>
+          <span className="ticker-dot" aria-hidden="true">◆</span>
+          <span>{songs.length} SONGS</span>
+          <span className="ticker-dot" aria-hidden="true">◆</span>
+          <span>{site.footer.mottoLine}</span>
+        </footer>
+      </div>
+
+      {/* ── MOBILE-ONLY LAYOUT ────────────────────────────────────── */}
+      <div className="mobile-only-layout">
+        {/* Topbar compact */}
+        <header className="mobile-header">
+          <div className="mobile-header-left">
+            <LiveTimeWeather />
+          </div>
+          <div className="mobile-header-right">
+            <AtmosphereSelector
+              currentMode={manualThemeId}
+              onSelect={setManualThemeId}
+            />
+            <button
+              className="mobile-btn chat-btn"
+              onClick={() => setChatOpen(true)}
+              title="Chat"
+            >
+              <MessageCircle size={18} strokeWidth={1.5} />
+            </button>
+            <button
+              className="mobile-btn"
+              onClick={() => setLibraryOpen(true)}
+              title="Archive"
+            >
+              <Disc3 size={18} strokeWidth={1.5} className="spin-slow" />
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Area: Flex container with auto-fit items */}
+        <div className="mobile-main">
+          {/* Live Listeners & Brand Mark */}
+          <div className="mobile-brand-section">
+            <div className="mobile-listeners">
+              <LiveListeners />
+            </div>
+            <div className="mobile-brand-title">
+              <span className="mobile-brand-1">ADHURE</span>
+              <span className="mobile-brand-2">kisse</span>
+            </div>
+          </div>
+
+          {/* Disc Wrap */}
+          <div className="mobile-disc-wrap">
+            <Record
+              coverSrc={song?.artwork?.cover}
+              songId={song?.id ?? "00"}
+              artistLabel={song?.artist ?? ""}
+              trackNumber={padTrack(state.currentIndex + 1)}
+              isPlaying={state.isPlaying}
+            />
+          </div>
+
+          {/* Player controls */}
+          <div className="mobile-player-section">
+            {song && (
+              <div className="mobile-song-meta">
+                <span className="mobile-song-title">{song.title}</span>
+                <span className="mobile-song-artist">{song.artist} • {song.year}</span>
+              </div>
             )}
 
             <PlayerControls
@@ -331,7 +438,15 @@ export default function MusicRoom() {
                 }
               }}
             />
+          </div>
 
+          {/* Quote display */}
+          <div className="mobile-quote-section">
+            <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
+          </div>
+
+          {/* Provider selector above footer */}
+          <div className="mobile-providers-section">
             <ProviderSelector
               activeProvider={state.activeProvider}
               spotifyConnected={state.spotifyConnected}
@@ -342,18 +457,14 @@ export default function MusicRoom() {
               onConnectSpotify={controls.connectSpotify}
               onDisconnectSpotify={controls.disconnectSpotify}
             />
-          </motion.div>
+          </div>
         </div>
-      </section>
 
-      {/* ── Footer ───────────────────────────────────────────── */}
-      <footer className="ticker" aria-label="Collection info">
-        <span>{site.footer.collectionLabel}</span>
-        <span className="ticker-dot" aria-hidden="true">◆</span>
-        <span>{songs.length} SONGS</span>
-        <span className="ticker-dot" aria-hidden="true">◆</span>
-        <span>{site.footer.mottoLine}</span>
-      </footer>
+        {/* Footer */}
+        <footer className="mobile-footer">
+          <span>{site.footer.collectionLabel} • {songs.length} SONGS</span>
+        </footer>
+      </div>
 
       {/* ── Library overlay ──────────────────────────────────── */}
       <AnimatePresence>
