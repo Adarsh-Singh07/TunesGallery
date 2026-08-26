@@ -87,6 +87,13 @@ export default function MusicRoom() {
     }
   }, [song?.id, manualThemeId]);
 
+  useEffect(() => {
+    // Service Worker for PWA
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
   // Update theme when manual selection changes
   useEffect(() => {
     if (manualThemeId) {

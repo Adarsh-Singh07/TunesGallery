@@ -155,6 +155,16 @@ export class YouTubeProvider implements PlaybackProvider {
 
   // ── Track loading ───────────────────────────────────────────────────────────
 
+  async cue(youtubeId: string): Promise<void> {
+    if (!this.player) return;
+    if (typeof this.player.cueVideoById === "function") {
+      this.player.cueVideoById({
+        videoId: youtubeId,
+        suggestedQuality: "small"
+      });
+    }
+  }
+
   async loadAndPlay(youtubeId: string): Promise<void> {
     if (!this.player) throw new Error("YouTube player not initialized");
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });

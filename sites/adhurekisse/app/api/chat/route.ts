@@ -52,12 +52,29 @@ export async function POST(req: Request) {
     const now = Date.now();
     
     if (body.type === 'ping') {
-      const { userId } = body;
+      const { userId, localMessages } = body;
       if (userId) {
         globalStore.activeUsers.set(userId, now);
       }
+      
+      // Hydrate serverless memory from active clients!
+      if (localMessages && Array.isArray(localMessages)) {
+        const merged = new Map<string, ChatMessage>();
+        globalStore.chatMessages.forEach(m => merged.set(m.id, m));
+        localMessages.forEach((m: ChatMessage) => merged.set(m.id, m));
+        
+        const sorted = Array.from(merged.values())
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          
+        globalStore.chatMessages = sorted.slice(-50); // Keep last 50
+      }
+      
       cleanupUsers();
-      return NextResponse.json({ success: true, listeners: Math.max(1, globalStore.activeUsers.size) });
+      return NextResponse.json({ 
+        success: true, 
+        listeners: Math.max(1, globalStore.activeUsers.size),
+        messages: globalStore.chatMessages
+      });
     }
     
     if (body.type === 'message') {

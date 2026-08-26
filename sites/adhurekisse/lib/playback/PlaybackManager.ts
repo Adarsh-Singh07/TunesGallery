@@ -263,6 +263,13 @@ export class PlaybackManager {
   async initializeDefaultProvider(): Promise<void> {
     await this.ensureProviderReady();
     await this.subscribeToProvider();
+    
+    // Cue the first song in advance so buffering starts, reducing the 5-sec wait to 1-sec.
+    const song = this.currentSong;
+    const provider = this.activeProvider;
+    if (song && provider && typeof (provider as any).cue === "function") {
+      await (provider as any).cue(song.youtubeId);
+    }
   }
 
   // ── Public: subscribe ─────────────────────────────────────────────────────
@@ -345,6 +352,22 @@ export class PlaybackManager {
   private async loadCurrentSong(play: boolean, startTime = 0): Promise<void> {
     const song = this.currentSong;
     if (!song) return;
+
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.title,
+        artist: song.artist,
+        album: song.movie,
+        artwork: [
+          { src: song.coverUrl ? `https://adhure-kisse.adarshsingh.in${song.coverUrl}` : "https://adhure-kisse.adarshsingh.in/favicon.ico", sizes: "512x512", type: "image/jpeg" }
+        ]
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => this.play());
+      navigator.mediaSession.setActionHandler("pause", () => this.pause());
+      navigator.mediaSession.setActionHandler("previoustrack", () => this.previous());
+      navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+    }
 
     try {
       await this.ensureProviderReady();

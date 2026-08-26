@@ -39,9 +39,15 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
       sessionStorage.setItem("adhure_user_id", userId);
     }
     
+    let currentMessages = [] as any[];
+    
     const fetchMessages = async () => {
       try {
-        const res = await fetch("/api/chat");
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "ping", userId, localMessages: currentMessages })
+        });
         const data = await res.json();
         if (data.messages) {
           const formatted = data.messages.map((m: any) => ({
@@ -49,6 +55,7 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
             timestamp: new Date(m.timestamp),
             isSelf: m.sender === savedName || m.sender === localStorage.getItem("adhure_chat_name")
           }));
+          currentMessages = formatted;
           setMessages(formatted);
         }
       } catch (e) {}
