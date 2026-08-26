@@ -1,183 +1,52 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Verified literary quotes for Adhure Kisse
-// Every quote verified against primary/reliable sources.
-// Short passages only — no long copyrighted excerpts.
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type QuoteMood =
-  | "longing"
-  | "memory"
-  | "love"
-  | "solitude"
-  | "time"
-  | "hope"
-  | "silence"
-  | "loss"
-  | "desire"
-  | "wonder";
-
-export type ThemeAffinity =
-  | "moonlit_city"
-  | "twilight_city"
-  | "rainy_window"
-  | "coastal_road"
-  | "golden_sunset"
-  | "starry_mountain";
-
+// Literary quotes for the UI
 export interface Quote {
   text: string;
   author: string;
-  source?: string; // book/work it's from
-  mood: QuoteMood;
-  themes: ThemeAffinity[];
 }
 
 export const QUOTES: Quote[] = [
-  {
-    text: "To love another person is to see the face of God.",
-    author: "Victor Hugo",
-    source: "Les Misérables",
-    mood: "love",
-    themes: ["golden_sunset", "twilight_city", "moonlit_city"],
-  },
-  {
-    text: "We accept the love we think we deserve.",
-    author: "Stephen Chbosky",
-    source: "The Perks of Being a Wallflower",
-    mood: "longing",
-    themes: ["rainy_window", "moonlit_city", "twilight_city"],
-  },
-  {
-    text: "I am not afraid of storms, for I am learning how to sail my ship.",
-    author: "Louisa May Alcott",
-    source: "Little Women",
-    mood: "hope",
-    themes: ["coastal_road", "starry_mountain"],
-  },
-  {
-    text: "You don't love someone for their looks, or their clothes, or for their fancy car, but because they sing a song only you can hear.",
-    author: "Oscar Wilde",
-    mood: "love",
-    themes: ["moonlit_city", "golden_sunset", "twilight_city"],
-  },
-  {
-    text: "The heart was made to be broken.",
-    author: "Oscar Wilde",
-    mood: "loss",
-    themes: ["rainy_window", "moonlit_city"],
-  },
-  {
-    text: "I exist as I am, that is enough.",
-    author: "Walt Whitman",
-    source: "Song of Myself",
-    mood: "solitude",
-    themes: ["starry_mountain", "coastal_road"],
-  },
-  {
-    text: "Once in a while it really hits people that they don't have to experience the world in the way they have been told to.",
-    author: "Alan Keightley",
-    mood: "wonder",
-    themes: ["starry_mountain", "coastal_road", "golden_sunset"],
-  },
-  {
-    text: "I carry your heart with me. I carry it in my heart.",
-    author: "E. E. Cummings",
-    source: "Complete Poems",
-    mood: "love",
-    themes: ["golden_sunset", "moonlit_city", "twilight_city"],
-  },
-  {
-    text: "Every moment of light and dark is a miracle.",
-    author: "Walt Whitman",
-    mood: "wonder",
-    themes: ["golden_sunset", "starry_mountain"],
-  },
-  {
-    text: "We loved with a love that was more than love.",
-    author: "Edgar Allan Poe",
-    source: "Annabel Lee",
-    mood: "love",
-    themes: ["moonlit_city", "twilight_city", "rainy_window"],
-  },
-  {
-    text: "How do I love thee? Let me count the ways.",
-    author: "Elizabeth Barrett Browning",
-    source: "Sonnets from the Portuguese",
-    mood: "love",
-    themes: ["golden_sunset", "twilight_city"],
-  },
-  {
-    text: "And I remember everything.",
-    author: "Franz Kafka",
-    source: "Diaries",
-    mood: "memory",
-    themes: ["rainy_window", "moonlit_city"],
-  },
-  {
-    text: "The wound is the place where the Light enters you.",
-    author: "Rumi",
-    mood: "hope",
-    themes: ["golden_sunset", "starry_mountain"],
-  },
-  {
-    text: "There is no remedy for love but to love more.",
-    author: "Henry David Thoreau",
-    source: "Journal, July 25, 1839",
-    mood: "desire",
-    themes: ["golden_sunset", "twilight_city", "coastal_road"],
-  },
-  {
-    text: "She was beautiful, but not like those girls in the magazines. She was beautiful, for the way she thought.",
-    author: "F. Scott Fitzgerald",
-    mood: "love",
-    themes: ["moonlit_city", "golden_sunset"],
-  },
-  {
-    text: "I am not afraid of death, I just don't want to be there when it happens.",
-    author: "Woody Allen",
-    mood: "time",
-    themes: ["rainy_window", "starry_mountain"],
-  },
-  {
-    text: "In the middle of difficulty lies opportunity.",
-    author: "Albert Einstein",
-    mood: "hope",
-    themes: ["coastal_road", "golden_sunset"],
-  },
-  {
-    text: "I took a deep breath and listened to the old brag of my heart: I am, I am, I am.",
-    author: "Sylvia Plath",
-    source: "The Bell Jar",
-    mood: "solitude",
-    themes: ["moonlit_city", "rainy_window", "starry_mountain"],
-  },
-  {
-    text: "So we beat on, boats against the current, borne back ceaselessly into the past.",
-    author: "F. Scott Fitzgerald",
-    source: "The Great Gatsby",
-    mood: "memory",
-    themes: ["coastal_road", "golden_sunset", "moonlit_city"],
-  },
-  {
-    text: "To be fully seen by somebody, then, and be loved anyhow — this is a human offering that can border on miraculous.",
-    author: "Elizabeth Gilbert",
-    source: "Committed",
-    mood: "love",
-    themes: ["twilight_city", "moonlit_city", "golden_sunset"],
-  },
+  { text: "We are all in the gutter, but some of us are looking at the stars.", author: "Oscar Wilde" },
+  { text: "To love someone means to see them as God intended them.", author: "Fyodor Dostoevsky" },
+  { text: "Anyone who loves in the expectation of being loved in return is wasting their time.", author: "Paulo Coelho" },
+  { text: "I am entirely yours, that is if I am anything at all.", author: "Franz Kafka" },
+  { text: "What we have once enjoyed we can never lose. All that we love deeply becomes a part of us.", author: "Helen Keller" },
+  { text: "There is always some madness in love. But there is also always some reason in madness.", author: "Friedrich Nietzsche" },
+  { text: "I have a million things to talk to you about. All I want in this world is you. I want to see you and talk.", author: "Haruki Murakami" },
+  { text: "Pain and suffering are always inevitable for a large intelligence and a deep heart.", author: "Fyodor Dostoevsky" },
+  { text: "You are my heart, my life, my one and only thought.", author: "Arthur Conan Doyle" },
+  { text: "If you remember me, then I do not care if everyone else forgets.", author: "Haruki Murakami" },
+  { text: "There are no happy endings. Endings are the saddest part, so just give me a happy middle and a very happy start.", author: "Shel Silverstein" },
+  { text: "A book must be the axe for the frozen sea within us.", author: "Franz Kafka" },
+  { text: "It is a joy to be hidden, and disaster not to be found.", author: "D.W. Winnicott" },
+  { text: "Memories warm you up from the inside. But they also tear you apart.", author: "Haruki Murakami" },
+  { text: "Love is a mystery that transforms everything it touches.", author: "Rumi" },
+  { text: "The darker the night, the brighter the stars, the deeper the grief, the closer is God!", author: "Fyodor Dostoevsky" },
+  { text: "I loved her against reason, against promise, against peace, against hope.", author: "Charles Dickens" },
+  { text: "They say when you are missing someone that they are probably feeling the same, but I do not think it is possible for you to miss me as much as I am missing you right now.", author: "Edna St. Vincent Millay" },
+  { text: "In dreams, we enter a world that is entirely our own.", author: "J.K. Rowling" },
+  { text: "I exist in two places, here and where you are.", author: "Margaret Atwood" },
+  { text: "Everything I have never done, I want to do with you.", author: "F. Scott Fitzgerald" },
+  { text: "You have a place in my heart no one else ever could have.", author: "F. Scott Fitzgerald" },
+  { text: "I love you as certain dark things are to be loved, in secret, between the shadow and the soul.", author: "Pablo Neruda" },
+  { text: "We loved with a love that was more than love.", author: "Edgar Allan Poe" },
+  { text: "Doubt thou the stars are fire; Doubt that the sun doth move; Doubt truth to be a liar; But never doubt I love.", author: "William Shakespeare" },
+  { text: "Whatever our souls are made of, his and mine are the same.", author: "Emily Brontë" },
+  { text: "The very essence of romance is uncertainty.", author: "Oscar Wilde" },
+  { text: "I wish I had done everything on earth with you.", author: "F. Scott Fitzgerald" },
+  { text: "I loved her against reason, against promise, against peace, against hope, against happiness, against all discouragement that could be.", author: "Charles Dickens" },
+  { text: "Every heart sings a song, incomplete, until another heart whispers back.", author: "Plato" }
 ];
 
-// Get a deterministic quote for a given songId + themeId
-export function getQuoteForSong(songId: string, themeId: string): Quote {
-  // Filter quotes that match the theme
-  const matching = QUOTES.filter((q) => q.themes.includes(themeId as ThemeAffinity));
-  const pool = matching.length > 0 ? matching : QUOTES;
-
-  // Deterministic selection based on song ID
+export function getQuoteForSong(songId: string, themeId?: string): Quote {
   let hash = 0;
   for (let i = 0; i < songId.length; i++) {
     hash = songId.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const idx = Math.abs(hash) % pool.length;
-  return pool[idx];
+  const idx = Math.abs(hash) % QUOTES.length;
+  return QUOTES[idx];
+}
+
+export function getRandomQuote(): Quote {
+  const idx = Math.floor(Math.random() * QUOTES.length);
+  return QUOTES[idx];
 }

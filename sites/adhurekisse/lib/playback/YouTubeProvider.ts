@@ -35,7 +35,7 @@ declare global {
 }
 
 interface YTPlayer {
-  loadVideoById(videoId: string, startSeconds?: number): void;
+  loadVideoById(videoId: string | { videoId: string, startSeconds?: number, suggestedQuality?: string }, startSeconds?: number): void;
   cueVideoById(videoId: string): void;
   playVideo(): void;
   pauseVideo(): void;
@@ -159,7 +159,10 @@ export class YouTubeProvider implements PlaybackProvider {
     if (!this.player) throw new Error("YouTube player not initialized");
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });
     if (typeof this.player.loadVideoById === "function") {
-      this.player.loadVideoById(youtubeId);
+      this.player.loadVideoById({
+        videoId: youtubeId,
+        suggestedQuality: "small" // Request lowest video quality since we only need audio (faster buffering)
+      });
     }
   }
 

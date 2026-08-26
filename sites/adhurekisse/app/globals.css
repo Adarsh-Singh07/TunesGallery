@@ -182,7 +182,7 @@ input { font: inherit; }
 
 .brand-name {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--foreground, #e8e4f2);
@@ -264,34 +264,35 @@ input { font: inherit; }
 
 /* ═══════════════════════════════════════════════════════════════
    HERO — Asymmetric editorial composition
-   Desktop: [brand+quote] [artwork] [song+controls]
+   Desktop: [artwork] [brand+quote] [song+controls]
 ═══════════════════════════════════════════════════════════════ */
 .hero {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr 1.1fr;
+  grid-template-columns: min(28vw, 340px) 1.2fr 1fr;
   grid-template-areas: "left center right";
   align-items: center;
   gap: clamp(24px, 3vw, 56px);
   padding: clamp(28px, 4vh, 60px) clamp(24px, 6vw, 80px) clamp(36px, 6vh, 80px);
 }
 
-/* LEFT column: brand + quote */
+/* LEFT column: artwork (was center) */
 .hero-left {
   grid-area: left;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0;
+  align-items: center;
+  justify-content: flex-start;
 }
 
-/* CENTER column: artwork */
+/* CENTER column: brand + quote (was left) */
 .hero-center {
   grid-area: center;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: center;
+  gap: 32px;
+  padding: 0 20px;
 }
 
 /* RIGHT column: song info + controls */
@@ -337,7 +338,7 @@ input { font: inherit; }
 
 .brand-tagline {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
   font-size: clamp(11px, 1vw, 13px);
   color: var(--muted, #8078a0);
   letter-spacing: 0.06em;
@@ -350,9 +351,29 @@ input { font: inherit; }
 
 /* ═══════════════════════════════════════════════════════════════
    QUOTE DISPLAY
-═══════════════════════════════════════════════════════════════ */
+═══════════════════════════════════════════════════════════════/* Quotes */
 .quote-container {
-  max-width: 300px;
+  max-width: 440px;
+  cursor: pointer;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.4s ease;
+  user-select: none;
+}
+
+.quote-container:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.quote-container:active {
+  transform: translateY(1px);
 }
 
 .quote-inner {
@@ -374,7 +395,7 @@ input { font: inherit; }
 
 .quote-attribution {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.12em;
   color: var(--muted, #8078a0);
   display: flex;
@@ -579,8 +600,8 @@ input { font: inherit; }
 
 .song-info-artist {
   font-family: var(--font-body);
-  font-weight: 300;
-  font-size: 13px;
+  font-weight: 500;
+  font-size: 14px;
   color: var(--muted, #8078a0);
   line-height: 1.5;
   letter-spacing: 0.02em;
@@ -593,7 +614,7 @@ input { font: inherit; }
 
 .song-info-year {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.14em;
   color: var(--muted, #8078a0);
   margin-top: 6px;
@@ -774,7 +795,7 @@ input { font: inherit; }
 .playback-error {
   margin-top: 12px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.08em;
   color: #e05555;
   background: rgba(224, 85, 85, 0.08);
@@ -885,7 +906,7 @@ input { font: inherit; }
   color: var(--foreground, #e8e4f2);
   font-size: 14px;
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
 }
 
 .search-input::placeholder { color: var(--muted, #8078a0); }
@@ -914,7 +935,7 @@ input { font: inherit; }
 
 .library-empty {
   padding: 40px 28px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted, #8078a0);
   font-style: italic;
 }
@@ -972,7 +993,7 @@ input { font: inherit; }
 }
 
 .library-row-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   font-family: var(--font-body);
   white-space: nowrap;
@@ -981,9 +1002,9 @@ input { font: inherit; }
 }
 
 .library-row-sub {
-  font-size: 11px;
+  font-size: 14px;
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
   color: var(--muted, #8078a0);
   white-space: nowrap;
   overflow: hidden;
@@ -1157,7 +1178,7 @@ input { font: inherit; }
 
 .entry-gate-tagline {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
   font-size: 14px;
   color: var(--muted, #8078a0);
   font-style: italic;
@@ -1167,7 +1188,7 @@ input { font: inherit; }
 
 .entry-gate-btn {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   padding: 14px 40px;
@@ -1224,7 +1245,7 @@ input { font: inherit; }
 
 .resume-subtitle {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
   font-size: 0.9rem;
   color: var(--muted, #8078a0);
   margin-bottom: 2rem;
@@ -1314,7 +1335,7 @@ input { font: inherit; }
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   text-align: left;
 }
@@ -1495,7 +1516,7 @@ input { font: inherit; }
 
 .entry-tagline {
   font-family: var(--font-body);
-  font-weight: 300;
+  font-weight: 500;
   font-size: clamp(13px, 1.4vw, 16px);
   color: var(--muted, #8078a0);
   font-style: italic;
@@ -1509,7 +1530,7 @@ input { font: inherit; }
   align-items: center;
   gap: 10px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.24em;
   text-transform: uppercase;
   padding: 16px 48px;

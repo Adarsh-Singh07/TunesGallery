@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Disc3 } from "lucide-react";
+import { Disc3, MessageCircle } from "lucide-react";
 
 import { songs } from "../data/songs";
 import { site } from "../data/site";
@@ -201,6 +201,14 @@ export default function MusicRoom() {
             onSelect={setManualThemeId}
           />
           <button
+            className="archive-btn chat-btn"
+            onClick={() => alert('Chat feature coming soon!')}
+            aria-label="Open Chat"
+          >
+            <MessageCircle size={17} strokeWidth={1.5} />
+            <span className="topbar-archive-label">CHAT</span>
+          </button>
+          <button
             className="archive-btn"
             onClick={() => setLibraryOpen(true)}
             aria-label="Open archive"
@@ -215,30 +223,8 @@ export default function MusicRoom() {
       {/* ── Hero — 3-column editorial grid ───────────────────── */}
       <section className="hero" aria-label="Music player">
 
-        {/* LEFT: brand mark + quote */}
+        {/* LEFT: vinyl record */}
         <div className="hero-left">
-          <motion.div
-            className="brand-mark"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
-          >
-            <span className="brand-line-1">ADHURE</span>
-            <span className="brand-line-2">kisse</span>
-            <p className="brand-tagline">{site.tagline}</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.2, delay: 0.4 }}
-          >
-            <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
-          </motion.div>
-        </div>
-
-        {/* CENTER: vinyl record */}
-        <div className="hero-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.90 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -261,6 +247,28 @@ export default function MusicRoom() {
                 />
               </motion.div>
             </AnimatePresence>
+          </motion.div>
+        </div>
+
+        {/* CENTER: brand mark + quote */}
+        <div className="hero-center">
+          <motion.div
+            className="brand-mark"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
+          >
+            <span className="brand-line-1">ADHURE</span>
+            <span className="brand-line-2">kisse</span>
+            <p className="brand-tagline">{site.tagline}</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.2, delay: 0.4 }}
+          >
+            <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
           </motion.div>
         </div>
 
