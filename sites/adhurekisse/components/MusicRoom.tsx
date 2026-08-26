@@ -13,6 +13,7 @@ import SongInfo from "./SongInfo";
 import PlayerControls from "./PlayerControls";
 import Library from "./Library";
 import ProviderSelector from "./ProviderSelector";
+import AtmosphereSelector from "./AtmosphereSelector";
 import YouTubeWidget from "./YouTubeWidget";
 import EntryGate from "./EntryGate";
 
@@ -21,6 +22,7 @@ import ResumePrompt from "./ResumePrompt";
 
 export default function MusicRoom() {
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [atmosphereMode, setAtmosphereMode] = useState<string | null>(null);
   const [hasEntered, setHasEntered] = useState(true); // default true to avoid flicker on SSR
   const [resumeState, setResumeState] = useState<ListeningState | null>(null);
 
@@ -100,7 +102,7 @@ export default function MusicRoom() {
   return (
     <main className="room" aria-label="adhurekisse music room">
       {/* ── Ambient ─────────────────────────────────── */}
-      <AmbientBackground />
+      <AmbientBackground currentSongId={song?.id} manualBgId={atmosphereMode} />
 
       {/* "?"? YouTube player widget (always in DOM when YT is provider) "?"?"?"?"? */}
       <YouTubeWidget
@@ -133,15 +135,21 @@ export default function MusicRoom() {
 
         <p className="topbar-eyebrow">{site.eyebrow}</p>
 
-        <button
-          className="archive-btn"
-          onClick={() => setLibraryOpen(true)}
-          aria-label="Open archive"
-          aria-expanded={libraryOpen}
-        >
-          <Disc3 size={19} strokeWidth={1.5} />
-          <span className="topbar-archive-label">ARCHIVE</span>
-        </button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <AtmosphereSelector 
+            currentMode={atmosphereMode} 
+            onSelect={setAtmosphereMode} 
+          />
+          <button
+            className="archive-btn"
+            onClick={() => setLibraryOpen(true)}
+            aria-label="Open archive"
+            aria-expanded={libraryOpen}
+          >
+            <Disc3 size={19} strokeWidth={1.5} />
+            <span className="topbar-archive-label">ARCHIVE</span>
+          </button>
+        </div>
       </header>
 
       {/* "?"? Hero "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}

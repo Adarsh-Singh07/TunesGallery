@@ -1347,3 +1347,70 @@ input { font: inherit; }
   box-shadow: 0 5px 10px rgba(0,0,0,0.5);
 }
 
+
+
+.ambient-image-container {
+  position: absolute;
+  inset: 0;
+}
+
+.atmosphere-selector {
+  position: relative;
+}
+
+.atmosphere-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 8px 32px var(--shadow);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atmosphere-header {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+
+.atmosphere-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.atmosphere-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
+.atmosphere-option:hover {
+  background: var(--surface-hover);
+}
+
+.atmosphere-option.active {
+  color: var(--accent);
+}
