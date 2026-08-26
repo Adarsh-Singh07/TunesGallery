@@ -58,6 +58,7 @@ export class PlaybackManager {
 
   // ── Subscribers ───────────────────────────────────────────────────────────
   private listeners = new Set<ManagerListener>();
+  private timeListeners = new Set<(time: number, duration: number) => void>();
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -158,6 +159,7 @@ export class PlaybackManager {
 
   async seek(seconds: number): Promise<void> {
     await this.activeProvider?.seek(seconds);
+    this.notifyTime();
   }
 
   async setVolume(volume: number): Promise<void> {
@@ -264,11 +266,17 @@ export class PlaybackManager {
   }
 
   // ── Public: subscribe ─────────────────────────────────────────────────────
-
+  
   subscribe(listener: ManagerListener): () => void {
     this.listeners.add(listener);
     listener(this.buildState()); // immediate snapshot
     return () => this.listeners.delete(listener);
+  }
+
+  subscribeTime(listener: (time: number, duration: number) => void): () => void {
+    this.timeListeners.add(listener);
+    listener(this._providerState.currentTime, this._providerState.duration);
+    return () => this.timeListeners.delete(listener);
   }
 
   // ── Public: getState ──────────────────────────────────────────────────────
@@ -308,9 +316,25 @@ export class PlaybackManager {
     this.providerUnsub?.();
     this.providerEndedUnsub?.();
 
+    let lastTime = this._providerState.currentTime;
+
     this.providerUnsub = provider.subscribe((state) => {
+      const isOnlyTimeUpdate = 
+        this._providerState.isPlaying === state.isPlaying &&
+        this._providerState.isLoading === state.isLoading &&
+        this._providerState.hasError === state.hasError &&
+        this._providerState.volume === state.volume &&
+        this._providerState.isMuted === state.isMuted &&
+        this._providerState.duration === state.duration;
+        
       this._providerState = state;
-      this.notify();
+      
+      if (isOnlyTimeUpdate && Math.abs(state.currentTime - lastTime) > 0.1) {
+        lastTime = state.currentTime;
+        this.notifyTime();
+      } else if (!isOnlyTimeUpdate) {
+        this.notify();
+      }
     });
 
     this.providerEndedUnsub = provider.onEnded(() => {
@@ -436,5 +460,9 @@ export class PlaybackManager {
   private notify(): void {
     const state = this.buildState();
     this.listeners.forEach((l) => l(state));
+  }
+
+  private notifyTime(): void {
+    this.timeListeners.forEach((l) => l(this._providerState.currentTime, this._providerState.duration));
   }
 }
