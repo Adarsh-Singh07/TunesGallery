@@ -158,38 +158,49 @@ export class YouTubeProvider implements PlaybackProvider {
   async loadAndPlay(youtubeId: string): Promise<void> {
     if (!this.player) throw new Error("YouTube player not initialized");
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });
-    this.player.loadVideoById(youtubeId);
-    // playVideo is triggered automatically by loadVideoById
+    if (typeof this.player.loadVideoById === "function") {
+      this.player.loadVideoById(youtubeId);
+    }
   }
 
   async play(): Promise<void> {
-    this.player?.playVideo();
+    if (this.player && typeof this.player.playVideo === "function") {
+      this.player.playVideo();
+    }
   }
 
   async pause(): Promise<void> {
-    this.player?.pauseVideo();
+    if (this.player && typeof this.player.pauseVideo === "function") {
+      this.player.pauseVideo();
+    }
   }
 
   async seek(seconds: number): Promise<void> {
-    this.player?.seekTo(seconds, true);
+    if (this.player && typeof this.player.seekTo === "function") {
+      this.player.seekTo(seconds, true);
+    }
     this.patch({ currentTime: seconds });
   }
 
   async setVolume(volume: number): Promise<void> {
     const clamped = Math.max(0, Math.min(1, volume));
-    this.player?.setVolume(Math.round(clamped * 100));
+    if (this.player && typeof this.player.setVolume === "function") {
+      this.player.setVolume(Math.round(clamped * 100));
+    }
     const wasMuted = this._state.isMuted;
-    if (wasMuted && clamped > 0) {
-      this.player?.unMute();
+    if (wasMuted && clamped > 0 && this.player && typeof this.player.unMute === "function") {
+      this.player.unMute();
     }
     this.patch({ volume: clamped, isMuted: clamped === 0 });
   }
 
   async setMuted(muted: boolean): Promise<void> {
-    if (muted) {
-      this.player?.mute();
-    } else {
-      this.player?.unMute();
+    if (this.player) {
+      if (muted && typeof this.player.mute === "function") {
+        this.player.mute();
+      } else if (!muted && typeof this.player.unMute === "function") {
+        this.player.unMute();
+      }
     }
     this.patch({ isMuted: muted });
   }

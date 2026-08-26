@@ -224,6 +224,7 @@ export default function MusicRoom() {
               hasSpotifyId={state.hasSpotifyId}
               onSwitch={controls.switchProvider}
               onConnectSpotify={controls.connectSpotify}
+              onDisconnectSpotify={controls.disconnectSpotify}
             />
           </motion.div>
         </div>

@@ -10,6 +10,7 @@ interface Props {
   hasSpotifyId: boolean;
   onSwitch: (id: ProviderId) => void;
   onConnectSpotify: () => void;
+  onDisconnectSpotify: () => void;
 }
 
 export default function ProviderSelector({
@@ -20,6 +21,7 @@ export default function ProviderSelector({
   hasSpotifyId,
   onSwitch,
   onConnectSpotify,
+  onDisconnectSpotify,
 }: Props) {
   function handleSpotifyClick() {
     if (spotifyConnected) {
@@ -93,6 +95,21 @@ export default function ProviderSelector({
           </>
         )}
       </button>
+
+      {/* Spotify Sign out / Change Account link */}
+      {spotifyConnected && (
+        <button
+          className="spotify-disconnect-btn"
+          onClick={() => {
+            onDisconnectSpotify();
+            onConnectSpotify();
+          }}
+          aria-label="Change Spotify Account"
+          style={{ fontSize: "10px", marginTop: "8px", opacity: 0.6, cursor: "pointer", background: "none", border: "none", color: "inherit", textDecoration: "underline" }}
+        >
+          Change Spotify Account
+        </button>
+      )}
     </div>
   );
 }
