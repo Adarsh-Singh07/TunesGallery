@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, UserCircle2 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 interface Message {
   id: string;
@@ -18,14 +19,15 @@ interface Props {
 }
 
 export default function ChatPanel({ isOpen, onClose }: Props) {
-  const [name, setName] = useState("");
-  const [isNameSet, setIsNameSet] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const [name, setName] = useState("");
+  const [isNameSet, setIsNameSet] = useState(false);
+  const [isSupabaseMissing, setIsSupabaseMissing] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load name from local storage and sync messages
+  // Load name and sync messages
   useEffect(() => {
     const savedName = localStorage.getItem("adhure_chat_name");
     if (savedName) {
@@ -33,37 +35,48 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
       setIsNameSet(true);
     }
     
-    let userId = sessionStorage.getItem("adhure_user_id");
-    if (!userId) {
-      userId = Math.random().toString(36).substring(2);
-      sessionStorage.setItem("adhure_user_id", userId);
+    if (!supabase) {
+      setIsSupabaseMissing(true);
+      return;
     }
-    
-    let currentMessages = [] as any[];
-    
-    const fetchMessages = async () => {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "ping", userId, localMessages: currentMessages })
-        });
-        const data = await res.json();
-        if (data.messages) {
-          const formatted = data.messages.map((m: any) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-            isSelf: m.sender === savedName || m.sender === localStorage.getItem("adhure_chat_name")
-          }));
-          currentMessages = formatted;
-          setMessages(formatted);
-        }
-      } catch (e) {}
+
+    // 1. Fetch history
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(60);
+      
+      if (data) {
+        setMessages(data.reverse().map(m => ({
+          id: m.id,
+          sender: m.sender,
+          text: m.text,
+          timestamp: new Date(m.created_at),
+          isSelf: m.sender === savedName
+        })));
+      }
     };
-    
-    fetchMessages();
-    const interval = setInterval(fetchMessages, 3000);
-    return () => clearInterval(interval);
+    fetchHistory();
+
+    // 2. Subscribe to realtime inserts
+    const channel = supabase.channel('chat-room')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const m = payload.new;
+        setMessages(prev => [...prev, {
+          id: m.id,
+          sender: m.sender,
+          text: m.text,
+          timestamp: new Date(m.created_at),
+          isSelf: m.sender === localStorage.getItem("adhure_chat_name")
+        }]);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -77,13 +90,10 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
     if (!name.trim()) return;
     localStorage.setItem("adhure_chat_name", name.trim());
     setIsNameSet(true);
-    // Refresh messages so we own our old ones
     setMessages(prev => prev.map(m => ({ ...m, isSelf: m.sender === name.trim() })));
   };
 
-  const handleChangeName = () => {
-    setIsNameSet(false);
-  };
+  const handleChangeName = () => setIsNameSet(false);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,15 +102,9 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
     const textToSend = inputText;
     setInputText(""); // optimistically clear
     
-    const userId = sessionStorage.getItem("adhure_user_id");
-    try {
-      await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "message", sender: name, text: textToSend, userId })
-      });
-      // the polling interval will catch it, or we can optimistic append
-    } catch(e) {}
+    if (supabase) {
+      await supabase.from('messages').insert([{ sender: name, text: textToSend }]);
+    }
   };
 
   return (

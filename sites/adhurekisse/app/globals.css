@@ -1388,27 +1388,25 @@ input { font: inherit; }
   .topbar-center { display: none; }
 
   .hero {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "center"
-      "left"
-      "right";
-    gap: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
     padding: 20px 20px 28px;
     text-align: center;
   }
 
   .hero-left, .hero-center, .hero-right {
-    grid-column: 1;
-    align-items: center;
+    display: contents;
   }
 
-  .hero-left { order: 2; }
-  .hero-center { order: 1; }
-  .hero-right { order: 3; }
+  .brand-mark { order: 1; margin-bottom: 0; }
+  
+  .hero-left > * { order: 2; margin: 12px auto; }
+  
+  .hero-right > * { order: 3; width: 100%; display: flex; flex-direction: column; align-items: center; }
+  
+  .hero-center > :last-child { order: 4; margin-top: 16px; }
 
-  .brand-mark { margin-bottom: 16px; }
   .brand-line-1 { font-size: clamp(44px, 12vw, 64px); }
   .brand-line-2 { font-size: clamp(36px, 9vw, 52px); }
   .brand-tagline { max-width: 100%; margin: 0 auto; }

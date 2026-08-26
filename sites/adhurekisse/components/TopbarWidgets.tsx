@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Cloud } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 export function LiveListeners() {
   const [listeners, setListeners] = useState(1);
 
   useEffect(() => {
+    if (!supabase) return;
+    
     // Generate a consistent user ID for this session
     let userId = sessionStorage.getItem("adhure_user_id");
     if (!userId) {
@@ -14,25 +16,27 @@ export function LiveListeners() {
       sessionStorage.setItem("adhure_user_id", userId);
     }
 
-    const ping = async () => {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "ping", userId })
-        });
-        const data = await res.json();
-        if (data.listeners) {
-          setListeners(data.listeners);
-        }
-      } catch (e) {
-        // fail silently
-      }
-    };
+    const room = supabase.channel('online-users');
 
-    ping();
-    const interval = setInterval(ping, 5000);
-    return () => clearInterval(interval);
+    room
+      .on('presence', { event: 'sync' }, () => {
+        const newState = room.presenceState();
+        // sum up all connected clients
+        let count = 0;
+        for (const key in newState) {
+          count += newState[key].length;
+        }
+        setListeners(Math.max(1, count));
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await room.track({ user: userId, online_at: new Date().toISOString() });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(room);
+    };
   }, []);
 
   return (

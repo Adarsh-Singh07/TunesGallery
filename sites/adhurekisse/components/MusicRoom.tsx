@@ -58,6 +58,8 @@ function buildThemeStyle(theme: CinematicTheme): React.CSSProperties {
 
 export default function MusicRoom() {
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const [chatOpen, setChatOpen] = useState(false);
   const [hasEntered, setHasEntered]           = useState(false);
   const [resumeState, setResumeState]         = useState<ListeningState | null>(null);
@@ -93,6 +95,15 @@ export default function MusicRoom() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
+
+  // Background play hack to keep OS from freezing iframe audio
+  useEffect(() => {
+    if (state.isPlaying && audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    } else if (!state.isPlaying && audioRef.current) {
+      audioRef.current.pause();
+    }
+  }, [state.isPlaying]);
 
   // Update theme when manual selection changes
   useEffect(() => {
@@ -363,6 +374,7 @@ export default function MusicRoom() {
       </AnimatePresence>
 
       <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      <audio ref={audioRef} src="/silence.wav" loop playsInline muted={false} style={{ display: 'none' }} />
     </main>
   );
 }
