@@ -27,7 +27,7 @@ export const songs: Song[] = [
     year: "2014",
     accent: "#c9a560",
     tags: ["romantic", "late-night"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "TTUxwWyClT0", spotifyTrackId: "" },
   },
   {
     id: "02",
@@ -36,7 +36,7 @@ export const songs: Song[] = [
     year: "2000",
     accent: "#a87b55",
     tags: ["nostalgia", "classic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "9BWNft9Z4qo", spotifyTrackId: "" },
   },
   {
     id: "03",
@@ -46,7 +46,7 @@ export const songs: Song[] = [
     year: "2015",
     accent: "#8fa8b2",
     tags: ["emotional", "journey"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "6DCOjq0omBc", spotifyTrackId: "" },
   },
   {
     id: "04",
@@ -56,7 +56,7 @@ export const songs: Song[] = [
     year: "2010",
     accent: "#b08060",
     tags: ["devotion", "late-night"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "OfF_nuC6wl0", spotifyTrackId: "" },
   },
   {
     id: "05",
@@ -65,7 +65,7 @@ export const songs: Song[] = [
     year: "2003",
     accent: "#7a8fa0",
     tags: ["nostalgia", "memories"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "JeGBNhyJeE4", spotifyTrackId: "" },
   },
   {
     id: "06",
@@ -74,7 +74,7 @@ export const songs: Song[] = [
     year: "2006",
     accent: "#a06860",
     tags: ["melancholic", "classic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "v_L-bAB1kUA", spotifyTrackId: "" },
   },
   {
     id: "07",
@@ -84,7 +84,7 @@ export const songs: Song[] = [
     year: "2010",
     accent: "#c08050",
     tags: ["romantic", "retro"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "DMLrGfMxOQA", spotifyTrackId: "" },
   },
   {
     id: "08",
@@ -94,7 +94,7 @@ export const songs: Song[] = [
     year: "2006",
     accent: "#8080a8",
     tags: ["ache", "late-night"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "Gg6NMU4ivXM", spotifyTrackId: "" },
   },
   {
     id: "09",
@@ -104,7 +104,7 @@ export const songs: Song[] = [
     year: "2007",
     accent: "#9070a0",
     tags: ["nostalgia", "memories"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "UlacMvx_VYk", spotifyTrackId: "" },
   },
   {
     id: "10",
@@ -113,7 +113,7 @@ export const songs: Song[] = [
     year: "2007",
     accent: "#c09060",
     tags: ["first-love", "sweet"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "ykMRCIecWmw", spotifyTrackId: "" },
   },
   {
     id: "11",
@@ -123,7 +123,7 @@ export const songs: Song[] = [
     year: "2007",
     accent: "#a87850",
     tags: ["romantic", "classic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "-FP2Cmc7zj4", spotifyTrackId: "" },
   },
   {
     id: "12",
@@ -133,7 +133,7 @@ export const songs: Song[] = [
     year: "2007",
     accent: "#b09060",
     tags: ["wonder", "romantic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "XIM9reXaY-Q", spotifyTrackId: "" },
   },
   {
     id: "13",
@@ -143,7 +143,7 @@ export const songs: Song[] = [
     year: "2010",
     accent: "#70a8a0",
     tags: ["life", "poetic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "DNnlhJYDBlY", spotifyTrackId: "" },
   },
   {
     id: "14",
@@ -153,7 +153,7 @@ export const songs: Song[] = [
     year: "2010",
     accent: "#6878a8",
     tags: ["longing", "late-night"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "maKDIvUVkQo", spotifyTrackId: "" },
   },
   {
     id: "15",
@@ -162,7 +162,7 @@ export const songs: Song[] = [
     year: "2004",
     accent: "#a08860",
     tags: ["dreams", "classic"],
-    playback: { youtubeId: "", spotifyTrackId: "" },
+    playback: { youtubeId: "3CoCIOXHQwk", spotifyTrackId: "" },
   },
 ];
 
