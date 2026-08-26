@@ -229,11 +229,15 @@ export class SpotifyProvider implements PlaybackProvider {
       break;
     }
 
-    if (!response || (!response.ok && response.status !== 204)) {
-      const err = await response?.text();
-      this.patch({ hasError: true, errorMessage: `Spotify API error: ${err}`, isLoading: false });
-      throw new Error(err || "Failed to play Spotify track.");
-    }
+      if (!response || (!response.ok && response.status !== 204)) {
+        this.patch({
+          hasError: true,
+          errorMessage: `Spotify refused playback. This requires a Spotify Premium account.`,
+          isLoading: false,
+          isPlaying: false,
+        });
+        return;
+      }
   }
 
   async play(): Promise<void> {
