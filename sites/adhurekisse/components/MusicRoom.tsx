@@ -100,15 +100,15 @@ export default function MusicRoom() {
   return (
     <main className="room" aria-label="adhurekisse music room">
       {/* ── Ambient ─────────────────────────────────── */}
-      <AmbientBackground accent={accent} coverSrc={song?.artwork?.cover || song?.cover} />
+      <AmbientBackground accent={accent} coverSrc={song?.artwork?.cover} />
 
-      {/* ── YouTube player widget (always in DOM when YT is provider) ──── */}
+      {/* "?"? YouTube player widget (always in DOM when YT is provider) "?"?"?"?"? */}
       <YouTubeWidget
         activeProvider={state.activeProvider}
         isPlaying={state.isPlaying}
       />
 
-      {/* ── Entry gate & Resume prompt ──────────────────────── */}
+      {/* "?"? Entry gate & Resume prompt "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
       <AnimatePresence>
         {!hasEntered && (
           resumeState ? (
@@ -124,7 +124,7 @@ export default function MusicRoom() {
         )}
       </AnimatePresence>
 
-      {/* ── Top bar ─────────────────────────────────── */}
+      {/* "?"? Top bar "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
       <header className="topbar">
         <div className="topbar-brand">
           <span className="brand-dot" aria-hidden="true" />
@@ -144,7 +144,7 @@ export default function MusicRoom() {
         </button>
       </header>
 
-      {/* ── Hero ────────────────────────────────────── */}
+      {/* "?"? Hero "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
       <section className="hero" aria-label="Music player">
         {/* Left: brand copy */}
         <div className="hero-copy">
@@ -175,7 +175,7 @@ export default function MusicRoom() {
               transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <Record
-                coverSrc={song?.artwork?.cover || song?.cover}
+                coverSrc={song?.artwork?.cover}
                 songId={song?.id ?? "00"}
                 artistLabel={song?.artist ?? ""}
                 trackNumber={padTrack(state.currentIndex + 1)}
