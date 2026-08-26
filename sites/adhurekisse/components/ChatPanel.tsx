@@ -126,7 +126,6 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
             exit={{ opacity: 0, x: 20, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             style={{ 
-              position: 'fixed', top: '80px', right: '40px', bottom: '80px', width: '380px',
               background: 'rgba(20, 16, 28, 0.85)', backdropFilter: 'blur(16px)',
               border: '1px solid var(--tb)', borderRadius: '24px', zIndex: 101,
               display: 'flex', flexDirection: 'column', overflow: 'hidden',

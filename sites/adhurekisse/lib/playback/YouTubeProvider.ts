@@ -167,8 +167,7 @@ export class YouTubeProvider implements PlaybackProvider {
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });
     if (typeof this.player.loadVideoById === "function") {
       this.player.loadVideoById({
-        videoId: youtubeId,
-        suggestedQuality: "small" // Request lowest video quality since we only need audio (faster buffering)
+        videoId: youtubeId
       });
     }
   }

@@ -30,6 +30,7 @@ interface Props {
   hasPlaybackRef: boolean;
   errorMessage: string;
   controls: PlaybackControls;
+  onPlayAction?: () => void;
 }
 
 function RepeatIcon({ mode }: { mode: RepeatMode }) {
@@ -56,6 +57,7 @@ export default function PlayerControls({
   hasPlaybackRef,
   errorMessage,
   controls,
+  onPlayAction,
 }: Props) {
   const progressPercent = duration ? (currentTime / duration) * 100 : 0;
 
@@ -114,7 +116,10 @@ export default function PlayerControls({
 
         <button
           className="ctrl-btn ctrl-play"
-          onClick={controls.togglePlay}
+          onClick={() => {
+            if (onPlayAction) onPlayAction();
+            controls.togglePlay();
+          }}
           aria-label={isPlaying ? "Pause" : "Play"}
           disabled={!hasSong || (!hasPlaybackRef && !isPlaying)}
         >

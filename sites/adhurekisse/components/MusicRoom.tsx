@@ -210,11 +210,7 @@ export default function MusicRoom() {
 
       {/* ── Top bar ───────────────────────────────────────────── */}
       <header className="topbar">
-        <div className="topbar-brand" aria-label="Live Listeners">
-          <LiveListeners />
-        </div>
-
-        <div className="topbar-center">
+        <div className="topbar-brand">
           <LiveTimeWeather />
         </div>
 
@@ -228,6 +224,7 @@ export default function MusicRoom() {
             onClick={() => setChatOpen(true)}
             aria-label="Open Chat"
             aria-expanded={chatOpen}
+            title="Chat"
           >
             <MessageCircle size={17} strokeWidth={1.5} />
             <span className="topbar-archive-label">CHAT</span>
@@ -235,10 +232,11 @@ export default function MusicRoom() {
           <button
             className="archive-btn"
             onClick={() => setLibraryOpen(true)}
-            aria-label="Open archive"
+            aria-label="Open Archive"
             aria-expanded={libraryOpen}
+            title="Archive"
           >
-            <Disc3 size={17} strokeWidth={1.5} />
+            <Disc3 size={17} strokeWidth={1.5} className="spin-slow" />
             <span className="topbar-archive-label">ARCHIVE</span>
           </button>
         </div>
@@ -249,6 +247,9 @@ export default function MusicRoom() {
 
         {/* LEFT: vinyl record */}
         <div className="hero-left">
+          <div className="mobile-live-listeners">
+            <LiveListeners />
+          </div>
           <motion.div
             initial={{ opacity: 0, scale: 0.90 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -324,6 +325,11 @@ export default function MusicRoom() {
               hasPlaybackRef={hasRef}
               errorMessage={state.errorMessage}
               controls={controls}
+              onPlayAction={() => {
+                if (audioRef.current && !state.isPlaying) {
+                  audioRef.current.play().catch(() => {});
+                }
+              }}
             />
 
             <ProviderSelector

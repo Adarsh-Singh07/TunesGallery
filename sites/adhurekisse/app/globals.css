@@ -1563,3 +1563,39 @@ input { font: inherit; }
   animation: spin 1s linear infinite;
 }
 
+
+.chat-panel {
+  position: fixed;
+  top: 80px;
+  right: 40px;
+  bottom: 80px;
+  width: 380px;
+}
+@media (max-width: 640px) {
+  .chat-panel {
+    top: auto;
+    bottom: 20px;
+    right: 50%;
+    transform: translateX(50%) !important;
+    width: 90vw;
+    height: 350px;
+  }
+}
+
+
+@media (max-width: 640px) {
+  .topbar-archive-label { display: none !important; }
+  .archive-btn { padding: 8px !important; }
+  .record-scene { width: 180px !important; height: 180px !important; margin: 0 auto !important; }
+  
+  .player-controls { gap: 10px !important; }
+  .volume-row { display: none !important; } /* Hide volume on mobile to save vertical space, since phone has volume buttons */
+  
+  .hero-right > :last-child {
+    /* The provider selector */
+    display: flex;
+    justify-content: center;
+    margin-top: 10px !important;
+  }
+}
+
