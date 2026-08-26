@@ -30,7 +30,7 @@ export const songs: Song[] = [
     year: "2014",
     accent: "#c9a560",
     tags: ["romantic", "late-night"],
-    playback: { youtubeId: "OQcGv04yhH4", spotifyTrackId: "" },
+    playback: { youtubeId: "uq_kkYsHEK0", spotifyTrackId: "" },
   },
   {
     id: "02",
