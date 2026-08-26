@@ -259,15 +259,15 @@ export class YouTubeProvider implements PlaybackProvider {
         const currentTime = this.player.getCurrentTime() ?? 0;
         const duration = this.player.getDuration() ?? 0;
         if (
-          Math.abs(currentTime - this._state.currentTime) > 0.5 ||
-          Math.abs(duration - this._state.duration) > 0.5
+          Math.abs(currentTime - this._state.currentTime) > 0.2 ||
+          Math.abs(duration - this._state.duration) > 0.2
         ) {
           this.patch({ currentTime, duration });
         }
       } catch {
         // player may not be ready yet — ignore
       }
-    }, 500);
+    }, 250);
   }
 
   private patch(partial: Partial<ProviderState>): void {

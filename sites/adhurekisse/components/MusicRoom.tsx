@@ -9,6 +9,9 @@ import { site } from "../data/site";
 import { getQuoteForSong } from "../data/quotes";
 import { getThemeForSong, type CinematicTheme, THEMES, THEME_ORDER, type ThemeId } from "../data/themes";
 
+import { LiveListeners, LiveTimeWeather } from "./TopbarWidgets";
+import ChatPanel from "./ChatPanel";
+
 import { usePlayback } from "../lib/playback/usePlayback";
 import {
   markSessionEntered,
@@ -54,7 +57,8 @@ function buildThemeStyle(theme: CinematicTheme): React.CSSProperties {
 }
 
 export default function MusicRoom() {
-  const [libraryOpen, setLibraryOpen]         = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [hasEntered, setHasEntered]           = useState(false);
   const [resumeState, setResumeState]         = useState<ListeningState | null>(null);
   const [manualThemeId, setManualThemeId]     = useState<ThemeId | null>(null);
@@ -188,12 +192,13 @@ export default function MusicRoom() {
 
       {/* ── Top bar ───────────────────────────────────────────── */}
       <header className="topbar">
-        <div className="topbar-brand" aria-label="adhurekisse">
-          <span className="brand-pip" aria-hidden="true" />
-          <span className="brand-name">adhurekisse</span>
+        <div className="topbar-brand" aria-label="Live Listeners">
+          <LiveListeners />
         </div>
 
-        <p className="topbar-center">{site.eyebrow}</p>
+        <div className="topbar-center">
+          <LiveTimeWeather />
+        </div>
 
         <div className="topbar-actions">
           <AtmosphereSelector
@@ -202,8 +207,9 @@ export default function MusicRoom() {
           />
           <button
             className="archive-btn chat-btn"
-            onClick={() => alert('Chat feature coming soon!')}
+            onClick={() => setChatOpen(true)}
             aria-label="Open Chat"
+            aria-expanded={chatOpen}
           >
             <MessageCircle size={17} strokeWidth={1.5} />
             <span className="topbar-archive-label">CHAT</span>
@@ -348,6 +354,8 @@ export default function MusicRoom() {
           </>
         )}
       </AnimatePresence>
+
+      <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </main>
   );
 }
