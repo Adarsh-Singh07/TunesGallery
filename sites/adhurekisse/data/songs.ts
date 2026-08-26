@@ -9,7 +9,10 @@ export type Song = {
   album?: string;
   movie?: string;
   year?: string;
-  cover?: string;
+  artwork?: {
+    poster?: string;
+    cover?: string;
+  };
   accent?: string;
   tags?: string[];
   lyrics?: string;
@@ -27,7 +30,7 @@ export const songs: Song[] = [
     year: "2014",
     accent: "#c9a560",
     tags: ["romantic", "late-night"],
-    playback: { youtubeId: "TTUxwWyClT0", spotifyTrackId: "" },
+    playback: { youtubeId: "OQcGv04yhH4", spotifyTrackId: "" },
   },
   {
     id: "02",

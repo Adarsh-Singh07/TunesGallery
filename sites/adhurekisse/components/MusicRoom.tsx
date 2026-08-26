@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Disc3 } from "lucide-react";
 import { songs } from "../data/songs";
@@ -16,11 +16,38 @@ import ProviderSelector from "./ProviderSelector";
 import YouTubeWidget from "./YouTubeWidget";
 import EntryGate from "./EntryGate";
 
+import { hasSessionEntered, markSessionEntered, loadListeningState, saveListeningState, clearListeningState, ListeningState } from "../lib/persistence";
+import ResumePrompt from "./ResumePrompt";
+
 export default function MusicRoom() {
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [hasEntered, setHasEntered] = useState(false);
+  const [hasEntered, setHasEntered] = useState(true); // default true to avoid flicker on SSR
+  const [resumeState, setResumeState] = useState<ListeningState | null>(null);
 
   const { state, controls } = usePlayback(songs);
+
+  useEffect(() => {
+    // Check if session has already entered
+    if (!hasSessionEntered()) {
+      setHasEntered(false);
+    }
+    // Check for previous listening session
+    const lastSession = loadListeningState();
+    if (lastSession) {
+      setResumeState(lastSession);
+    }
+  }, []);
+
+  // Save state on changes if entered
+  useEffect(() => {
+    if (hasEntered && state.activeProvider && state.currentTime > 5) {
+      saveListeningState({
+        songId: songs[state.currentIndex]?.id ?? "",
+        position: state.currentTime,
+        provider: state.activeProvider,
+      });
+    }
+  }, [hasEntered, state.currentIndex, state.currentTime, state.activeProvider]);
 
   const song     = songs[state.currentIndex] ?? null;
   const accent   = song?.accent ?? site.theme.accent;
@@ -31,8 +58,28 @@ export default function MusicRoom() {
     : false;
 
   function handleEnter() {
+    markSessionEntered();
     setHasEntered(true);
     controls.initializePlayer();
+  }
+
+  async function handleResume(resume: boolean) {
+    markSessionEntered();
+    setHasEntered(true);
+    
+    if (resume && resumeState) {
+      const idx = songs.findIndex(s => s.id === resumeState.songId);
+      if (idx !== -1) {
+        if (state.activeProvider !== resumeState.provider) {
+          await controls.switchProvider(resumeState.provider);
+        }
+        await controls.selectSong(idx);
+        setTimeout(() => controls.seek(resumeState.position), 500);
+      }
+    } else {
+      clearListeningState();
+      controls.initializePlayer();
+    }
   }
 
   function chooseSong(index: number) {
@@ -53,7 +100,7 @@ export default function MusicRoom() {
   return (
     <main className="room" aria-label="adhurekisse music room">
       {/* ── Ambient ─────────────────────────────────── */}
-      <AmbientBackground accent={accent} />
+      <AmbientBackground accent={accent} coverSrc={song?.artwork?.cover || song?.cover} />
 
       {/* ── YouTube player widget (always in DOM when YT is provider) ──── */}
       <YouTubeWidget
@@ -61,14 +108,19 @@ export default function MusicRoom() {
         isPlaying={state.isPlaying}
       />
 
-      {/* ── Entry gate overlay ──────────────────────── */}
+      {/* ── Entry gate & Resume prompt ──────────────────────── */}
       <AnimatePresence>
         {!hasEntered && (
-          <EntryGate
-            siteName={site.name}
-            tagline={site.tagline}
-            onEnter={handleEnter}
-          />
+          resumeState ? (
+            <ResumePrompt key="resume" resumeState={resumeState} onDecide={handleResume} />
+          ) : (
+            <EntryGate
+              key="entry"
+              siteName={site.name}
+              tagline={site.tagline}
+              onEnter={handleEnter}
+            />
+          )
         )}
       </AnimatePresence>
 
@@ -123,7 +175,7 @@ export default function MusicRoom() {
               transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
             >
               <Record
-                coverSrc={song?.cover}
+                coverSrc={song?.artwork?.cover || song?.cover}
                 songId={song?.id ?? "00"}
                 artistLabel={song?.artist ?? ""}
                 trackNumber={padTrack(state.currentIndex + 1)}

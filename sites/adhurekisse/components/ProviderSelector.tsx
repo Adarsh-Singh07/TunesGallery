@@ -65,7 +65,7 @@ export default function ProviderSelector({
             ? "Play via Spotify"
             : "Connect Spotify"
         }
-        disabled={spotifyConnecting || (!spotifyConnected && !hasSpotifyId && activeProvider !== "spotify")}
+        disabled={spotifyConnecting || (!spotifyConnected ? false : (!hasSpotifyId && activeProvider !== "spotify"))}
         title={!hasSpotifyId && spotifyConnected ? "Spotify ID not set for this track" : undefined}
       >
         {spotifyConnecting ? (

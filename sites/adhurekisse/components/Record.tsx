@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 
@@ -11,7 +12,7 @@ interface Props {
   isPlaying: boolean;
 }
 
-export default function Record({
+const Record = memo(function Record({
   coverSrc,
   songId,
   artistLabel,
@@ -70,4 +71,6 @@ export default function Record({
       />
     </div>
   );
-}
+});
+
+export default Record;
