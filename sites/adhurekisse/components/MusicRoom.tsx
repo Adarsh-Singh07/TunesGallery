@@ -1,63 +1,117 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Disc3 } from "lucide-react";
+
 import { songs } from "../data/songs";
 import { site } from "../data/site";
-import { usePlayback } from "../lib/playback/usePlayback";
-import { padTrack } from "../lib/utils";
-import AmbientBackground from "./AmbientBackground";
-import Record from "./Record";
-import SongInfo from "./SongInfo";
-import PlayerControls from "./PlayerControls";
-import Library from "./Library";
-import ProviderSelector from "./ProviderSelector";
-import AtmosphereSelector from "./AtmosphereSelector";
-import YouTubeWidget from "./YouTubeWidget";
-import EntryGate from "./EntryGate";
+import { getQuoteForSong } from "../data/quotes";
+import { getThemeForSong, type CinematicTheme, THEMES, THEME_ORDER, type ThemeId } from "../data/themes";
 
-import { hasSessionEntered, markSessionEntered, loadListeningState, saveListeningState, clearListeningState, ListeningState } from "../lib/persistence";
+import { usePlayback } from "../lib/playback/usePlayback";
+import {
+  markSessionEntered,
+  hasSessionEntered,
+  loadListeningState,
+  clearListeningState,
+  type ListeningState,
+} from "../lib/persistence";
+
+import AmbientBackground from "./AmbientBackground";
+import AtmosphereSelector from "./AtmosphereSelector";
+import EntryGate from "./EntryGate";
+import Library from "./Library";
+import PlayerControls from "./PlayerControls";
+import ProviderSelector from "./ProviderSelector";
+import QuoteDisplay from "./QuoteDisplay";
+import Record from "./Record";
 import ResumePrompt from "./ResumePrompt";
+import SongInfo from "./SongInfo";
+import YouTubeWidget from "./YouTubeWidget";
+
+function padTrack(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function buildThemeStyle(theme: CinematicTheme): React.CSSProperties {
+  return {
+    "--tp":        theme.primary,
+    "--ts":        theme.secondary,
+    "--ta":        theme.accent,
+    "--ta-soft":   theme.accentSoft,
+    "--tm":        theme.muted,
+    "--tq":        theme.quoteColor,
+    "--tb":        theme.border,
+    "--tsf":       theme.surface,
+    "--tsh":       theme.surfaceHover,
+    "--tw-shadow": theme.shadow,
+    "--ot":        theme.overlayTop,
+    "--ob":        theme.overlayBottom,
+    "--ov":        theme.vignetteColor,
+    "--ga":        theme.gradientAngle,
+  } as React.CSSProperties;
+}
 
 export default function MusicRoom() {
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [atmosphereMode, setAtmosphereMode] = useState<string | null>(null);
-  const [hasEntered, setHasEntered] = useState(true); // default true to avoid flicker on SSR
-  const [resumeState, setResumeState] = useState<ListeningState | null>(null);
+  const [libraryOpen, setLibraryOpen]         = useState(false);
+  const [hasEntered, setHasEntered]           = useState(false);
+  const [resumeState, setResumeState]         = useState<ListeningState | null>(null);
+  const [manualThemeId, setManualThemeId]     = useState<ThemeId | null>(null);
+  const [activeTheme, setActiveTheme]         = useState<CinematicTheme>(
+    THEMES[THEME_ORDER[0]]
+  );
 
   const { state, controls } = usePlayback(songs);
 
+  // Derive current song
+  const song = songs[state.currentIndex] ?? null;
+
+  // On mount: check if session entered previously
   useEffect(() => {
-    // Check if session has already entered
-    if (!hasSessionEntered()) {
-      setHasEntered(false);
-    }
-    // Check for previous listening session
-    const lastSession = loadListeningState();
-    if (lastSession) {
-      setResumeState(lastSession);
+    if (hasSessionEntered()) {
+      setHasEntered(true);
+      const ls = loadListeningState();
+      if (ls) setResumeState(ls);
     }
   }, []);
 
-  // Save state on changes if entered
+  // Update auto theme when song changes (only if not manual)
   useEffect(() => {
-    if (hasEntered && state.activeProvider && state.currentTime > 5) {
-      saveListeningState({
-        songId: songs[state.currentIndex]?.id ?? "",
-        position: state.currentTime,
-        provider: state.activeProvider,
+    if (!manualThemeId && song) {
+      setActiveTheme(getThemeForSong(song.id));
+    }
+  }, [song?.id, manualThemeId]);
+
+  // Update theme when manual selection changes
+  useEffect(() => {
+    if (manualThemeId) {
+      setActiveTheme(THEMES[manualThemeId]);
+    }
+  }, [manualThemeId]);
+
+  // Persist listening state while playing
+  useEffect(() => {
+    if (hasEntered && song && state.isPlaying) {
+      import("../lib/persistence").then(({ saveListeningState }) => {
+        saveListeningState({
+          songId: song.id,
+          position: state.currentTime,
+          provider: state.activeProvider,
+        });
       });
     }
-  }, [hasEntered, state.currentIndex, state.currentTime, state.activeProvider]);
+  }, [hasEntered, song?.id, state.currentTime, state.activeProvider, state.isPlaying]);
 
-  const song     = songs[state.currentIndex] ?? null;
-  const accent   = song?.accent ?? site.theme.accent;
-  const hasRef   = state.activeProvider === "youtube"
-    ? state.hasYouTubeId
-    : state.activeProvider === "spotify"
-    ? state.hasSpotifyId
-    : false;
+  // Derived quote
+  const quote = song ? getQuoteForSong(song.id, activeTheme.id) : null;
+
+  const hasRef =
+    state.activeProvider === "youtube"
+      ? state.hasYouTubeId
+      : state.activeProvider === "spotify"
+      ? state.hasSpotifyId
+      : false;
 
   function handleEnter() {
     markSessionEntered();
@@ -68,9 +122,9 @@ export default function MusicRoom() {
   async function handleResume(resume: boolean) {
     markSessionEntered();
     setHasEntered(true);
-    
+
     if (resume && resumeState) {
-      const idx = songs.findIndex(s => s.id === resumeState.songId);
+      const idx = songs.findIndex((s) => s.id === resumeState.songId);
       if (idx !== -1) {
         if (state.activeProvider !== resumeState.provider) {
           await controls.switchProvider(resumeState.provider);
@@ -92,25 +146,31 @@ export default function MusicRoom() {
   if (!songs.length) {
     return (
       <main className="room" style={{ display: "grid", placeItems: "center" }}>
-        <p style={{ color: "var(--muted)", fontFamily: "monospace", letterSpacing: "0.15em" }}>
+        <p style={{ color: "var(--tm)", fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}>
           NO SONGS LOADED
         </p>
       </main>
     );
   }
 
-  return (
-    <main className="room" aria-label="adhurekisse music room">
-      {/* ── Ambient ─────────────────────────────────── */}
-      <AmbientBackground currentSongId={song?.id} manualBgId={atmosphereMode} />
+  const themeStyle = buildThemeStyle(activeTheme);
 
-      {/* "?"? YouTube player widget (always in DOM when YT is provider) "?"?"?"?"? */}
+  return (
+    <main
+      className="room"
+      aria-label="adhurekisse music room"
+      style={themeStyle}
+    >
+      {/* ── Cinematic Background ──────────────────────────────── */}
+      <AmbientBackground theme={activeTheme} />
+
+      {/* ── YouTube player widget ─────────────────────────────── */}
       <YouTubeWidget
         activeProvider={state.activeProvider}
         isPlaying={state.isPlaying}
       />
 
-      {/* "?"? Entry gate & Resume prompt "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
+      {/* ── Entry gate & Resume prompt ────────────────────────── */}
       <AnimatePresence>
         {!hasEntered && (
           resumeState ? (
@@ -126,19 +186,19 @@ export default function MusicRoom() {
         )}
       </AnimatePresence>
 
-      {/* "?"? Top bar "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
+      {/* ── Top bar ───────────────────────────────────────────── */}
       <header className="topbar">
-        <div className="topbar-brand">
-          <span className="brand-dot" aria-hidden="true" />
-          <span className="brand-name">{site.name}</span>
+        <div className="topbar-brand" aria-label="adhurekisse">
+          <span className="brand-pip" aria-hidden="true" />
+          <span className="brand-name">adhurekisse</span>
         </div>
 
-        <p className="topbar-eyebrow">{site.eyebrow}</p>
+        <p className="topbar-center">{site.eyebrow}</p>
 
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <AtmosphereSelector 
-            currentMode={atmosphereMode} 
-            onSelect={setAtmosphereMode} 
+        <div className="topbar-actions">
+          <AtmosphereSelector
+            currentMode={manualThemeId}
+            onSelect={setManualThemeId}
           />
           <button
             className="archive-btn"
@@ -146,59 +206,70 @@ export default function MusicRoom() {
             aria-label="Open archive"
             aria-expanded={libraryOpen}
           >
-            <Disc3 size={19} strokeWidth={1.5} />
+            <Disc3 size={17} strokeWidth={1.5} />
             <span className="topbar-archive-label">ARCHIVE</span>
           </button>
         </div>
       </header>
 
-      {/* "?"? Hero "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */}
+      {/* ── Hero — 3-column editorial grid ───────────────────── */}
       <section className="hero" aria-label="Music player">
-        {/* Left: brand copy */}
-        <div className="hero-copy">
+
+        {/* LEFT: brand mark + quote */}
+        <div className="hero-left">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
+            className="brand-mark"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            <p className="copy-eyebrow">A PRIVATE MUSIC ROOM</p>
-            <h1 className="copy-title" lang="hi">{site.name}</h1>
-            <p className="copy-tagline">{site.tagline}</p>
+            <span className="brand-line-1">ADHURE</span>
+            <span className="brand-line-2">kisse</span>
+            <p className="brand-tagline">{site.tagline}</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.2, delay: 0.4 }}
+          >
+            <QuoteDisplay quote={quote} songId={song?.id ?? "00"} />
           </motion.div>
         </div>
 
-        {/* Center: vinyl record */}
-        <motion.div
-          className="hero-record"
-          initial={{ opacity: 0, scale: 0.88 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
-        >
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={song?.id}
-              initial={{ opacity: 0, rotate: -8, scale: 0.92 }}
-              animate={{ opacity: 1, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, rotate: 8, scale: 0.94 }}
-              transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-            >
-              <Record
-                coverSrc={song?.artwork?.cover}
-                songId={song?.id ?? "00"}
-                artistLabel={song?.artist ?? ""}
-                trackNumber={padTrack(state.currentIndex + 1)}
-                isPlaying={state.isPlaying}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </motion.div>
-
-        {/* Right: song info + controls */}
-        <div className="hero-player">
+        {/* CENTER: vinyl record */}
+        <div className="hero-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: "easeOut", delay: 0.25 }}
+            initial={{ opacity: 0, scale: 0.90 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.10 }}
+          >
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={song?.id}
+                initial={{ opacity: 0, scale: 0.94, rotateY: -6 }}
+                animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+                exit={{ opacity: 0, scale: 0.96, rotateY: 6 }}
+                transition={{ duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
+              >
+                <Record
+                  coverSrc={song?.artwork?.cover}
+                  songId={song?.id ?? "00"}
+                  artistLabel={song?.artist ?? ""}
+                  trackNumber={padTrack(state.currentIndex + 1)}
+                  isPlaying={state.isPlaying}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        </div>
+
+        {/* RIGHT: song info + controls */}
+        <div className="hero-right">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.15 }}
           >
             {song && (
               <SongInfo
@@ -223,7 +294,6 @@ export default function MusicRoom() {
               controls={controls}
             />
 
-            {/* Provider selector — subtle, integrated */}
             <ProviderSelector
               activeProvider={state.activeProvider}
               spotifyConnected={state.spotifyConnected}
@@ -238,16 +308,16 @@ export default function MusicRoom() {
         </div>
       </section>
 
-      {/* ── Footer ──────────────────────────────────── */}
+      {/* ── Footer ───────────────────────────────────────────── */}
       <footer className="ticker" aria-label="Collection info">
         <span>{site.footer.collectionLabel}</span>
-        <span className="ticker-dot" aria-hidden="true">·</span>
+        <span className="ticker-dot" aria-hidden="true">◆</span>
         <span>{songs.length} SONGS</span>
-        <span className="ticker-dot" aria-hidden="true">·</span>
+        <span className="ticker-dot" aria-hidden="true">◆</span>
         <span>{site.footer.mottoLine}</span>
       </footer>
 
-      {/* ── Library overlay ─────────────────────────── */}
+      {/* ── Library overlay ──────────────────────────────────── */}
       <AnimatePresence>
         {libraryOpen && (
           <>
@@ -256,7 +326,7 @@ export default function MusicRoom() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.25 }}
               onClick={() => setLibraryOpen(false)}
               aria-hidden="true"
             />

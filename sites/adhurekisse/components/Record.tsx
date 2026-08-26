@@ -1,7 +1,7 @@
 "use client";
 
 import { memo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
 interface Props {
@@ -30,11 +30,11 @@ const Record = memo(function Record({
         animate={{ rotate: isPlaying ? 360 : 0 }}
         transition={
           isPlaying
-            ? { duration: 8, ease: "linear", repeat: Infinity, repeatType: "loop" }
-            : { duration: 0.6, ease: "easeOut" }
+            ? { duration: 20, ease: "linear", repeat: Infinity, repeatType: "loop" }
+            : { duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }
         }
       >
-        {/* Grooves — rendered via CSS, multiple rings */}
+        {/* Grooves */}
         <div className="record-grooves" aria-hidden="true" />
 
         {/* Sheen / specular reflection */}
@@ -42,21 +42,32 @@ const Record = memo(function Record({
 
         {/* Center label */}
         <div className="record-label">
-          {coverSrc ? (
-            <Image
-              src={coverSrc}
-              alt=""
-              fill
-              sizes="31vw"
-              className="record-label-image"
-              priority
-            />
-          ) : (
-            <div className="record-label-fallback">
-              <span className="record-label-artist">{artistLabel}</span>
-              <span className="record-label-track">{trackNumber}</span>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={songId}
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ position: "absolute", inset: 0, borderRadius: "50%" }}
+            >
+              {coverSrc ? (
+                <Image
+                  src={coverSrc}
+                  alt=""
+                  fill
+                  sizes="20vw"
+                  className="record-label-image"
+                  priority
+                />
+              ) : (
+                <div className="record-label-fallback">
+                  <span className="record-label-artist">{artistLabel}</span>
+                  <span className="record-label-track">{trackNumber}</span>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
           {/* Center spindle hole */}
           <div className="record-spindle" aria-hidden="true" />
         </div>
@@ -66,8 +77,8 @@ const Record = memo(function Record({
       <motion.div
         className="record-needle"
         aria-hidden="true"
-        animate={{ rotate: isPlaying ? 28 : 18 }}
-        transition={{ duration: 0.8, ease: "easeInOut" }}
+        animate={{ rotate: isPlaying ? 26 : 16 }}
+        transition={{ duration: 1.0, ease: [0.25, 0.46, 0.45, 0.94] }}
       />
     </div>
   );

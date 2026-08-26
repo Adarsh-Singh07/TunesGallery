@@ -18,7 +18,6 @@ import type { PlaybackControls } from "../lib/playback/usePlayback";
 import { clamp, formatTime } from "../lib/utils";
 
 interface Props {
-  // State
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -28,21 +27,20 @@ interface Props {
   shuffle: boolean;
   repeat: RepeatMode;
   hasSong: boolean;
-  hasPlaybackRef: boolean; // true if active provider has an ID for this track
+  hasPlaybackRef: boolean;
   errorMessage: string;
-  // Controls
   controls: PlaybackControls;
 }
 
 function RepeatIcon({ mode }: { mode: RepeatMode }) {
-  if (mode === "one") return <Repeat1 size={17} />;
-  return <Repeat size={17} />;
+  if (mode === "one") return <Repeat1 size={16} />;
+  return <Repeat size={16} />;
 }
 
 function VolumeIcon({ muted, volume }: { muted: boolean; volume: number }) {
-  if (muted || volume === 0) return <VolumeX size={17} />;
-  if (volume < 0.5) return <Volume1 size={17} />;
-  return <Volume2 size={17} />;
+  if (muted || volume === 0) return <VolumeX size={16} />;
+  if (volume < 0.5) return <Volume1 size={16} />;
+  return <Volume2 size={16} />;
 }
 
 export default function PlayerControls({
@@ -69,7 +67,7 @@ export default function PlayerControls({
 
   return (
     <div className="player-controls">
-      {/* Progress bar — only shown when a playback reference is available */}
+      {/* Progress bar */}
       {hasPlaybackRef && (
         <div className="progress-area">
           <span className="progress-time">{formatTime(currentTime)}</span>
@@ -94,7 +92,7 @@ export default function PlayerControls({
         </div>
       )}
 
-      {/* Main controls row */}
+      {/* Controls row — hierarchy: secondary, prev, PLAY, next, secondary */}
       <div className="controls-row">
         <button
           className={`ctrl-btn ctrl-sm ${shuffle ? "ctrl-active" : ""}`}
@@ -102,7 +100,7 @@ export default function PlayerControls({
           aria-label="Shuffle"
           aria-pressed={shuffle}
         >
-          <Shuffle size={17} />
+          <Shuffle size={16} />
         </button>
 
         <button
@@ -111,7 +109,7 @@ export default function PlayerControls({
           aria-label="Previous track"
           disabled={!hasSong}
         >
-          <ChevronLeft size={22} />
+          <ChevronLeft size={20} />
         </button>
 
         <button
@@ -121,11 +119,11 @@ export default function PlayerControls({
           disabled={!hasSong || (!hasPlaybackRef && !isPlaying)}
         >
           {isLoading ? (
-            <Loader2 size={20} className="spin-icon" />
+            <Loader2 size={18} className="spin-icon" />
           ) : isPlaying ? (
-            <Pause fill="currentColor" size={22} />
+            <Pause fill="currentColor" size={20} />
           ) : (
-            <Play fill="currentColor" size={22} />
+            <Play fill="currentColor" size={20} style={{ marginLeft: "2px" }} />
           )}
         </button>
 
@@ -135,7 +133,7 @@ export default function PlayerControls({
           aria-label="Next track"
           disabled={!hasSong}
         >
-          <ChevronRight size={22} />
+          <ChevronRight size={20} />
         </button>
 
         <button
@@ -170,7 +168,7 @@ export default function PlayerControls({
 
       {/* Status messages */}
       {!hasPlaybackRef && hasSong && !errorMessage && (
-        <p className="no-audio-hint">Playback IDs not yet assigned — coming soon</p>
+        <p className="no-audio-hint">Playback IDs not yet assigned</p>
       )}
       {errorMessage && (
         <p className="playback-error" role="alert">{errorMessage}</p>

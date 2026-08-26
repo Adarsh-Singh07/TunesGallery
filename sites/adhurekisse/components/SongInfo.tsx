@@ -10,9 +10,9 @@ interface Props {
 }
 
 const variants = {
-  enter: { opacity: 0, y: 14 },
+  enter: { opacity: 0, y: 12 },
   center: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -10 },
+  exit: { opacity: 0, y: -8 },
 };
 
 export default function SongInfo({ song, trackNumber, totalTracks }: Props) {
@@ -27,15 +27,14 @@ export default function SongInfo({ song, trackNumber, totalTracks }: Props) {
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
         >
           <h2 className="song-info-title">{song.title}</h2>
           <p className="song-info-artist">
             {song.artist}
             {(song.movie || song.album) && (
               <span className="song-info-separator">
-                {" "}
-                ·{" "}
+                {" "}·{" "}
                 <span className="song-info-album">
                   {song.movie ?? song.album}
                 </span>

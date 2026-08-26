@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import Image from "next/image";
 import type { Song } from "../data/songs";
 import SearchBox from "./SearchBox";
 
@@ -39,7 +40,7 @@ export default function Library({
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
-      transition={{ duration: 0.42, ease: [0.32, 0.72, 0, 1] }}
+      transition={{ duration: 0.40, ease: [0.32, 0.72, 0, 1] }}
       aria-label="Song archive"
       role="dialog"
       aria-modal="true"
@@ -55,7 +56,7 @@ export default function Library({
           onClick={onClose}
           aria-label="Close archive"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
       </div>
 
@@ -81,9 +82,23 @@ export default function Library({
                   onClose();
                 }}
               >
+                {/* Artwork thumbnail */}
+                {song.artwork?.cover && (
+                  <div className="library-row-art">
+                    <Image
+                      src={song.artwork.cover}
+                      alt=""
+                      fill
+                      sizes="40px"
+                      style={{ objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+
                 <span className="library-row-num">
                   {String(realIndex + 1).padStart(2, "0")}
                 </span>
+
                 <span className="library-row-body">
                   <span className="library-row-title">{song.title}</span>
                   <span className="library-row-sub">
@@ -94,6 +109,7 @@ export default function Library({
                     {song.year && <> · {song.year}</>}
                   </span>
                 </span>
+
                 {isActive && (
                   <span className="library-row-indicator" aria-label={isPlaying ? "Playing" : "Paused"}>
                     {isPlaying ? "●" : "Ⅱ"}
