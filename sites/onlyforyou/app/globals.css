@@ -860,7 +860,7 @@ input { font: inherit; }
 }
 
 .mobile-disc-wrap {
-  width: min(66vw, 280px);
+  width: min(52.8vw, 224px);
   flex-shrink: 0;
 }
 

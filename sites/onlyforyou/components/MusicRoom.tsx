@@ -15,6 +15,7 @@ import Record from "./Record";
 import SongInfo from "./SongInfo";
 import YouTubeWidget from "./YouTubeWidget";
 import QuoteDisplay from "./QuoteDisplay";
+import LiveClock from "./LiveClock";
 import { getQuoteForSong } from "../data/quotes";
 import { getThemeForSong } from "../data/themes";
 
@@ -112,7 +113,8 @@ export default function MusicRoom() {
         <header className="topbar">
           <div className="topbar-brand">
             <span className="brand-pip" aria-hidden="true" />
-            <span className="brand-name">OnlyForYou</span>
+            <span className="brand-name">ONLYFORYOU</span>
+            <LiveClock />
           </div>
           <div className="topbar-actions">
             <span className="topbar-collection">
@@ -170,8 +172,10 @@ export default function MusicRoom() {
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
               aria-hidden="true"
             >
-              ♥
+               ♥
             </motion.div>
+
+            <QuoteDisplay quote={getQuoteForSong(song?.id ?? "01")} songId={song?.id ?? "01"} />
           </div>
 
           {/* RIGHT: song info + controls */}
@@ -227,7 +231,8 @@ export default function MusicRoom() {
         <header className="mobile-header">
           <div className="mobile-brand-badge">
             <span className="brand-pip" aria-hidden="true" />
-            <span className="brand-name">OnlyForYou</span>
+            <span className="brand-name">ONLYFORYOU</span>
+            <LiveClock />
           </div>
           <span className="mobile-track-counter">
             {padTrack(state.currentIndex + 1)} / {padTrack(songs.length)}
@@ -252,6 +257,10 @@ export default function MusicRoom() {
               trackNumber={padTrack(state.currentIndex + 1)}
               isPlaying={state.isPlaying}
             />
+          </div>
+
+          <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+            <QuoteDisplay quote={getQuoteForSong(song?.id ?? "01")} songId={song?.id ?? "01"} />
           </div>
 
           {/* Song info (mobile) */}
