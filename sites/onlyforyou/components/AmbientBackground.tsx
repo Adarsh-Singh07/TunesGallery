@@ -35,7 +35,7 @@ const AmbientBackground = memo(function AmbientBackground({ accent, coverUrl, so
   const currentBg = isMobile && theme.bgUrlMobile ? theme.bgUrlMobile : theme.bgUrl;
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden bg-black -z-10">
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
       <AnimatePresence>
         {mounted && (
           <motion.div
