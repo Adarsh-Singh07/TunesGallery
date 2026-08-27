@@ -1,12 +1,12 @@
 {
   "name": "OnlyForYou",
   "short_name": "OnlyForYou",
-  "description": "A private music room, made with love.",
+  "description": "A private music room.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#07050a",
   "theme_color": "#07050a",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
   ]
 }

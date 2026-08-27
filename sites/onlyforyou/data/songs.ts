@@ -21,7 +21,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/O1OVTHGEi0M/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/O1OVTHGEi0M/hqdefault.jpg"
     },
     playback: {
 
@@ -36,7 +36,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2018",
     artwork: {
-      cover: "https://i.ytimg.com/vi/d_2a5_S_6nU/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/d_2a5_S_6nU/hqdefault.jpg"
     },
     playback: {
 
@@ -51,7 +51,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2021",
     artwork: {
-      cover: "https://i.ytimg.com/vi/7VZ-VQMZRAU/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/7VZ-VQMZRAU/hqdefault.jpg"
     },
     playback: {
 
@@ -111,7 +111,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2018",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Z4LbxXYFmk0/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Z4LbxXYFmk0/hqdefault.jpg"
     },
     playback: {
 
@@ -171,7 +171,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "1960",
     artwork: {
-      cover: "https://i.ytimg.com/vi/TqBgIAXdH_c/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/TqBgIAXdH_c/hqdefault.jpg"
     },
     playback: {
 
@@ -216,7 +216,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "1958",
     artwork: {
-      cover: "https://i.ytimg.com/vi/2xBD-WVXsXQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/2xBD-WVXsXQ/hqdefault.jpg"
     },
     playback: {
 
@@ -231,7 +231,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2018",
     artwork: {
-      cover: "https://i.ytimg.com/vi/ADqBFUB25Bs/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/ADqBFUB25Bs/hqdefault.jpg"
     },
     playback: {
 
@@ -276,7 +276,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2004",
     artwork: {
-      cover: "https://i.ytimg.com/vi/rHHqSnstl2s/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/rHHqSnstl2s/hqdefault.jpg"
     },
     playback: {
 
@@ -306,7 +306,7 @@ export const songs: Song[] = [
     album: undefined,
     year: "2026",
     artwork: {
-      cover: "https://i.ytimg.com/vi/oafxkMv4xnc/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/oafxkMv4xnc/hqdefault.jpg"
     },
     playback: {
 
@@ -321,7 +321,7 @@ export const songs: Song[] = [
     album: "Merry Christmas",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/1yzDUrFVAcU/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/1yzDUrFVAcU/hqdefault.jpg"
     },
     playback: {
 
@@ -336,7 +336,7 @@ export const songs: Song[] = [
     album: "Outrageous tuber",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/GG2q368Mr9g/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/GG2q368Mr9g/hqdefault.jpg"
     },
     playback: {
 
@@ -351,7 +351,7 @@ export const songs: Song[] = [
     album: "Youngistaan",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/83pr5QLz6Bc/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/83pr5QLz6Bc/hqdefault.jpg"
     },
     playback: {
 
@@ -366,7 +366,7 @@ export const songs: Song[] = [
     album: "Padman",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/NFsEqOBG51M/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/NFsEqOBG51M/hqdefault.jpg"
     },
     playback: {
 
@@ -381,7 +381,7 @@ export const songs: Song[] = [
     album: "Raees",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/hhdSyBHuI88/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/hhdSyBHuI88/hqdefault.jpg"
     },
     playback: {
 
@@ -396,7 +396,7 @@ export const songs: Song[] = [
     album: "Shaadi Mein Zaroor Aana",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/HexFqifusOk/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/HexFqifusOk/hqdefault.jpg"
     },
     playback: {
 
@@ -411,7 +411,7 @@ export const songs: Song[] = [
     album: "Aamir,Kareena",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/KUpwupYj_tY/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/KUpwupYj_tY/hqdefault.jpg"
     },
     playback: {
 
@@ -426,7 +426,7 @@ export const songs: Song[] = [
     album: "M.S. DHONI -THE UNTOLD STORY",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Ov0YGGSY6gY/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Ov0YGGSY6gY/hqdefault.jpg"
     },
     playback: {
 
@@ -441,7 +441,7 @@ export const songs: Song[] = [
     album: "Gold",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Y9ozt29tzgs/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Y9ozt29tzgs/hqdefault.jpg"
     },
     playback: {
 
@@ -456,7 +456,7 @@ export const songs: Song[] = [
     album: "Ayushmann Khurrana, Nushrat Bharucha",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/zing4uQ3dR4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/zing4uQ3dR4/hqdefault.jpg"
     },
     playback: {
 
@@ -471,7 +471,7 @@ export const songs: Song[] = [
     album: "Utkarsh Sharma, Ishita Chauhan",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/qfdShSZZxlg/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/qfdShSZZxlg/hqdefault.jpg"
     },
     playback: {
 
@@ -486,7 +486,7 @@ export const songs: Song[] = [
     album: "Gadar 2",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/BsqrmY91nUQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/BsqrmY91nUQ/hqdefault.jpg"
     },
     playback: {
 
@@ -501,7 +501,7 @@ export const songs: Song[] = [
     album: "Kedarnath",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/vdbP_3o73qI/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/vdbP_3o73qI/hqdefault.jpg"
     },
     playback: {
 
@@ -516,7 +516,7 @@ export const songs: Song[] = [
     album: "Alia Bhatt , Varun Dhawan",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Grr0FlC8SQA/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Grr0FlC8SQA/hqdefault.jpg"
     },
     playback: {
 
@@ -531,7 +531,7 @@ export const songs: Song[] = [
     album: "Kedarnath",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/ZmcBC9-wAXM/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/ZmcBC9-wAXM/hqdefault.jpg"
     },
     playback: {
 
@@ -546,7 +546,7 @@ export const songs: Song[] = [
     album: "seventyskye",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/39ghSEArbf4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/39ghSEArbf4/hqdefault.jpg"
     },
     playback: {
 
@@ -561,7 +561,7 @@ export const songs: Song[] = [
     album: "Itz me Arabi",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Xp7XWB_E6fA/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Xp7XWB_E6fA/hqdefault.jpg"
     },
     playback: {
 
@@ -576,7 +576,7 @@ export const songs: Song[] = [
     album: "Ranbir Kapoor, Katrina",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/BewnzhHlQuk/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/BewnzhHlQuk/hqdefault.jpg"
     },
     playback: {
 
@@ -591,7 +591,7 @@ export const songs: Song[] = [
     album: "7clouds Hindi",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/8sqDCkVgMbc/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/8sqDCkVgMbc/hqdefault.jpg"
     },
     playback: {
 
@@ -606,7 +606,7 @@ export const songs: Song[] = [
     album: "Arijit Singh, Shashaa Tirupati",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Am3gIN7TgeQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Am3gIN7TgeQ/hqdefault.jpg"
     },
     playback: {
 
@@ -621,7 +621,7 @@ export const songs: Song[] = [
     album: "New York",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/nUI4rDhiJr4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/nUI4rDhiJr4/hqdefault.jpg"
     },
     playback: {
 
@@ -636,7 +636,7 @@ export const songs: Song[] = [
     album: "seventyskye",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/LTBuUMsfb3s/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/LTBuUMsfb3s/hqdefault.jpg"
     },
     playback: {
 
@@ -651,7 +651,7 @@ export const songs: Song[] = [
     album: "main dil ka raaz kehta hoon ki jab jab saanse leta hun💭🎤",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/EKcVql4rlss/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/EKcVql4rlss/hqdefault.jpg"
     },
     playback: {
 
@@ -666,7 +666,7 @@ export const songs: Song[] = [
     album: "Aashiqui 2",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Q4F7MF5Vzt0/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Q4F7MF5Vzt0/hqdefault.jpg"
     },
     playback: {
 
@@ -681,7 +681,7 @@ export const songs: Song[] = [
     album: "",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/5ER0txQD6Ws/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/5ER0txQD6Ws/hqdefault.jpg"
     },
     playback: {
 
@@ -696,7 +696,7 @@ export const songs: Song[] = [
     album: "Jeet Gannguli - Khamoshiyan (Lyrics)",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/LmnpgSc1tKo/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/LmnpgSc1tKo/hqdefault.jpg"
     },
     playback: {
 
@@ -711,7 +711,7 @@ export const songs: Song[] = [
     album: "shershaah",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/5_N2p7kJewA/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/5_N2p7kJewA/hqdefault.jpg"
     },
     playback: {
 
@@ -726,7 +726,7 @@ export const songs: Song[] = [
     album: "Kay Kay - Topic",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/IgITZfS7L_8/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/IgITZfS7L_8/hqdefault.jpg"
     },
     playback: {
 
@@ -741,7 +741,7 @@ export const songs: Song[] = [
     album: "Arijit Singh",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/lPxxhOUloUM/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/lPxxhOUloUM/hqdefault.jpg"
     },
     playback: {
 
@@ -756,7 +756,7 @@ export const songs: Song[] = [
     album: "Snehil Bhoumik",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/VVMRSec4x40/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/VVMRSec4x40/hqdefault.jpg"
     },
     playback: {
 
@@ -771,7 +771,7 @@ export const songs: Song[] = [
     album: "Full Song",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/jwb5P46FqY0/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/jwb5P46FqY0/hqdefault.jpg"
     },
     playback: {
 
@@ -786,7 +786,7 @@ export const songs: Song[] = [
     album: "Sachin Jigar",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/-2K0-RwxVIE/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/-2K0-RwxVIE/hqdefault.jpg"
     },
     playback: {
 
@@ -801,7 +801,7 @@ export const songs: Song[] = [
     album: "Paresh Pahuja",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/9T-Zbxg9X_4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/9T-Zbxg9X_4/hqdefault.jpg"
     },
     playback: {
 
@@ -816,7 +816,7 @@ export const songs: Song[] = [
     album: "Krishnavataram Part 1",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/8clRfKww5vI/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/8clRfKww5vI/hqdefault.jpg"
     },
     playback: {
 
@@ -831,7 +831,7 @@ export const songs: Song[] = [
     album: "Afreen Afreen",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/kw4tT7SCmaY/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/kw4tT7SCmaY/hqdefault.jpg"
     },
     playback: {
 
@@ -846,7 +846,7 @@ export const songs: Song[] = [
     album: "Half Girlfriend",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/8Gz8ti7J-CI/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/8Gz8ti7J-CI/hqdefault.jpg"
     },
     playback: {
 
@@ -861,7 +861,7 @@ export const songs: Song[] = [
     album: "Kishore & Asha's EVERGREEN ROMANCE",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/HUy4_yZi2L4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/HUy4_yZi2L4/hqdefault.jpg"
     },
     playback: {
 
@@ -876,7 +876,7 @@ export const songs: Song[] = [
     album: "Hamari Adhuri Kahani",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/ktPD6TMovxs/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/ktPD6TMovxs/hqdefault.jpg"
     },
     playback: {
 
@@ -891,7 +891,7 @@ export const songs: Song[] = [
     album: "Kam Ni Hota",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Id_cRqCxduw/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Id_cRqCxduw/hqdefault.jpg"
     },
     playback: {
 
@@ -906,7 +906,7 @@ export const songs: Song[] = [
     album: "Chhaya(1961)",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/Q__-cYB1u18/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/Q__-cYB1u18/hqdefault.jpg"
     },
     playback: {
 
@@ -921,7 +921,7 @@ export const songs: Song[] = [
     album: "Old Hindi Sad Song",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/DFbbpMD3taw/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/DFbbpMD3taw/hqdefault.jpg"
     },
     playback: {
 
@@ -936,7 +936,7 @@ export const songs: Song[] = [
     album: "AFI7?",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/6EMUjQ8fEqc/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/6EMUjQ8fEqc/hqdefault.jpg"
     },
     playback: {
 
@@ -951,7 +951,7 @@ export const songs: Song[] = [
     album: "Rajshri",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/S0WPSYFm7iE/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/S0WPSYFm7iE/hqdefault.jpg"
     },
     playback: {
 
@@ -966,7 +966,7 @@ export const songs: Song[] = [
     album: "Bat of music 90s ",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/POpSYoQhj88/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/POpSYoQhj88/hqdefault.jpg"
     },
     playback: {
 
@@ -981,7 +981,7 @@ export const songs: Song[] = [
     album: "Dil Ek Mandir",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/zgeRC9vrtrM/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/zgeRC9vrtrM/hqdefault.jpg"
     },
     playback: {
 
@@ -996,7 +996,7 @@ export const songs: Song[] = [
     album: "Mohabbatein",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/eM8Mjuq4MwQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/eM8Mjuq4MwQ/hqdefault.jpg"
     },
     playback: {
 
@@ -1011,7 +1011,7 @@ export const songs: Song[] = [
     album: "Sanam",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/4HRC6c5-2lQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/4HRC6c5-2lQ/hqdefault.jpg"
     },
     playback: {
 
@@ -1026,7 +1026,7 @@ export const songs: Song[] = [
     album: "",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/WS4guFHkYBw/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/WS4guFHkYBw/hqdefault.jpg"
     },
     playback: {
 
@@ -1041,7 +1041,7 @@ export const songs: Song[] = [
     album: "Arijit Singh",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/s9q_82OQsJE/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/s9q_82OQsJE/hqdefault.jpg"
     },
     playback: {
 
@@ -1056,7 +1056,7 @@ export const songs: Song[] = [
     album: "Azaan Sami Khan",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/J7ck984Qhso/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/J7ck984Qhso/hqdefault.jpg"
     },
     playback: {
 
@@ -1071,7 +1071,7 @@ export const songs: Song[] = [
     album: "Shreya Ghoshal",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/FGt1PxPKWUM/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/FGt1PxPKWUM/hqdefault.jpg"
     },
     playback: {
 
@@ -1086,7 +1086,7 @@ export const songs: Song[] = [
     album: "Laila Majnu",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/aCWoO3xxtTI/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/aCWoO3xxtTI/hqdefault.jpg"
     },
     playback: {
 
@@ -1101,7 +1101,7 @@ export const songs: Song[] = [
     album: "Anurag Saikia",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/TQqBjSAK52s/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/TQqBjSAK52s/hqdefault.jpg"
     },
     playback: {
 
@@ -1116,7 +1116,7 @@ export const songs: Song[] = [
     album: "Ae Dil Hai Mushkil",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/hk0u0PAlDWQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/hk0u0PAlDWQ/hqdefault.jpg"
     },
     playback: {
 
@@ -1131,7 +1131,7 @@ export const songs: Song[] = [
     album: "Duet",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/D9N7qAyLofE/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/D9N7qAyLofE/hqdefault.jpg"
     },
     playback: {
 
@@ -1146,7 +1146,7 @@ export const songs: Song[] = [
     album: "Tiger Shroff, Jacqueline Fernandez",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/lHWDJlBPTHo/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/lHWDJlBPTHo/hqdefault.jpg"
     },
     playback: {
 
@@ -1161,7 +1161,7 @@ export const songs: Song[] = [
     album: "Naam Shabana",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/CtgD91Ev4NU/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/CtgD91Ev4NU/hqdefault.jpg"
     },
     playback: {
 
@@ -1176,7 +1176,7 @@ export const songs: Song[] = [
     album: "Shah Rukh Khan & Juhi Chawla",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/vzlXfZlH5dk/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/vzlXfZlH5dk/hqdefault.jpg"
     },
     playback: {
 
@@ -1191,7 +1191,7 @@ export const songs: Song[] = [
     album: "Bulleya Song with Lyrics",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/_51KXfwcPMs/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/_51KXfwcPMs/hqdefault.jpg"
     },
     playback: {
 
@@ -1206,7 +1206,7 @@ export const songs: Song[] = [
     album: "Do Patti",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/lBvbNxiVmZA/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/lBvbNxiVmZA/hqdefault.jpg"
     },
     playback: {
 
@@ -1221,7 +1221,7 @@ export const songs: Song[] = [
     album: "Pardes",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/2V0ZcN-gOdc/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/2V0ZcN-gOdc/hqdefault.jpg"
     },
     playback: {
 
@@ -1236,7 +1236,7 @@ export const songs: Song[] = [
     album: "Emraan Hashmi, Vidya Balan",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/kdCUNPX8fz4/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/kdCUNPX8fz4/hqdefault.jpg"
     },
     playback: {
 
@@ -1251,7 +1251,7 @@ export const songs: Song[] = [
     album: "Full Video",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/46FsHy_J7oQ/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/46FsHy_J7oQ/hqdefault.jpg"
     },
     playback: {
 
@@ -1266,7 +1266,7 @@ export const songs: Song[] = [
     album: "Race 2 I Saif Ali Khan & Deepika Padukone",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/r_3K9vZ4oZE/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/r_3K9vZ4oZE/hqdefault.jpg"
     },
     playback: {
 
@@ -1281,7 +1281,7 @@ export const songs: Song[] = [
     album: "Music background",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/sTRps18IAlw/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/sTRps18IAlw/hqdefault.jpg"
     },
     playback: {
 
@@ -1296,7 +1296,7 @@ export const songs: Song[] = [
     album: "Awarapan 2",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/6rvUyBiBtik/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/6rvUyBiBtik/hqdefault.jpg"
     },
     playback: {
 
@@ -1311,7 +1311,7 @@ export const songs: Song[] = [
     album: "Full Song",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/1GWyCJHuNms/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/1GWyCJHuNms/hqdefault.jpg"
     },
     playback: {
 
@@ -1326,7 +1326,7 @@ export const songs: Song[] = [
     album: "Aditya Roy Kapur, Katrina Kaif",
     year: "2024",
     artwork: {
-      cover: "https://i.ytimg.com/vi/QQBiU9U9Fng/maxresdefault.jpg"
+      cover: "https://i.ytimg.com/vi/QQBiU9U9Fng/hqdefault.jpg"
     },
     playback: {
 

@@ -235,7 +235,7 @@ export class PlaybackManager {
         album: song.album,
         artwork: [
           {
-            src: song.artwork?.cover ?? "/favicon.ico",
+            src: song.artwork?.cover ?? "/favicon.svg",
             sizes: "512x512",
             type: "image/jpeg",
           },
