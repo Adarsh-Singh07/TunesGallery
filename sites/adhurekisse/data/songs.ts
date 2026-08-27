@@ -5,7 +5,9 @@ export interface Song {
   title: string;
   artist: string;
   album?: string;
+  movie?: string;
   year?: string;
+  tags?: string[];
   artwork: {
     cover: string;
   };

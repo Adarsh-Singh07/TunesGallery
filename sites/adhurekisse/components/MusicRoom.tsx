@@ -247,8 +247,9 @@ export default function MusicRoom() {
       <div className="desktop-only-layout">
         {/* ── Top bar ───────────────────────────────────────────── */}
         <header className="topbar">
-          <div className="topbar-brand">
+          <div className="topbar-brand" style={{ display: 'flex', gap: '24px' }}>
             <LiveTimeWeather />
+            <LiveListeners count={listeners} />
           </div>
 
           <div className="topbar-actions">
@@ -283,9 +284,6 @@ export default function MusicRoom() {
         <section className="hero" aria-label="Music player">
           {/* LEFT: vinyl record */}
           <div className="hero-left">
-            <div className="mobile-live-listeners">
-              <LiveListeners count={listeners} />
-            </div>
             <motion.div
               initial={{ opacity: 0, scale: 0.90 }}
               animate={{ opacity: 1, scale: 1 }}
