@@ -110,6 +110,7 @@ export class YouTubeProvider implements PlaybackProvider {
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
+          origin: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
         },
         events: {
           onReady: () => {
