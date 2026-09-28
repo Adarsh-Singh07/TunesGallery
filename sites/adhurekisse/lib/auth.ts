@@ -75,4 +75,6 @@ export interface TrackRow {
   status: "pending" | "ready" | "failed";
   created_at: string;
   updated_at: string;
+  /** Presigned artwork URL — only present on ready tracks with artwork. */
+  artworkUrl?: string | null;
 }

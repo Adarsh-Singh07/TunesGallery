@@ -6,6 +6,7 @@ interface Props {
   activeProvider: ProviderId;
   spotifyConnected: boolean;
   spotifyConnecting: boolean;
+  hasR2Track: boolean;
   hasYouTubeId: boolean;
   hasSpotifyId: boolean;
   onSwitch: (id: ProviderId) => void;
@@ -17,6 +18,7 @@ export default function ProviderSelector({
   activeProvider,
   spotifyConnected,
   spotifyConnecting,
+  hasR2Track,
   hasYouTubeId,
   hasSpotifyId,
   onSwitch,
@@ -34,6 +36,23 @@ export default function ProviderSelector({
   return (
     <div className="provider-selector" role="group" aria-label="Playback provider">
       <span className="provider-label">PLAY VIA</span>
+
+      {/* Private R2 audio — preferred when the track has an authorized file */}
+      {hasR2Track && (
+        <button
+          className={`provider-btn ${activeProvider === "r2" ? "provider-btn-active" : ""}`}
+          onClick={() => onSwitch("r2")}
+          aria-pressed={activeProvider === "r2"}
+          aria-label="Play private audio"
+          title="Your private library copy — best quality and background playback"
+        >
+          <svg className="provider-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <rect x="4" y="10" width="16" height="10" rx="2" />
+            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+          </svg>
+          Private
+        </button>
+      )}
 
       {/* YouTube button */}
       <button

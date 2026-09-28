@@ -10,6 +10,7 @@ import { requireUser, unauthorized, forbidden } from "../../../lib/server/auth";
 import {
   isR2Configured,
   presignUpload,
+  presignStream,
   audioKey,
   extFromMime,
   ALLOWED_AUDIO_MIME,
@@ -29,7 +30,27 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: true });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ tracks: data ?? [] });
+
+  // Artwork needs <img>-friendly access; presigned GETs double as the
+  // authorization (short-lived, no headers possible on <img>). Audio URLs are
+  // deliberately NOT presigned here — playback authorization happens per
+  // stream request.
+  let tracks = data ?? [];
+  if (isR2Configured() && tracks.length > 0) {
+    tracks = await Promise.all(
+      tracks.map(async (t) => {
+        if (t.status !== "ready" || !t.artwork_key) return { ...t, artworkUrl: null };
+        try {
+          const { url } = await presignStream(t.artwork_key);
+          return { ...t, artworkUrl: url };
+        } catch {
+          return { ...t, artworkUrl: null };
+        }
+      }),
+    );
+  }
+
+  return Response.json({ tracks });
 }
 
 interface CreateTrackBody {

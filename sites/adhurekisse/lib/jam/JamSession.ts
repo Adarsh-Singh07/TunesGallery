@@ -320,14 +320,15 @@ export class JamSession {
   }
 
   async reorderQueue(orderedIds: string[]): Promise<void> {
-    if (!this._room) return;
+    const roomId = this._room?.id;
+    if (!roomId) return;
     await Promise.all(
       orderedIds.map((id, i) =>
         this.opts.db
           .from("jam_queue")
           .update({ position: i + 1 })
           .eq("id", id)
-          .eq("room_id", this._room.id),
+          .eq("room_id", roomId),
       ),
     );
     await this.refetchQueue();

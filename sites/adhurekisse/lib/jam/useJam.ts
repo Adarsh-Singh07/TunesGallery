@@ -188,44 +188,54 @@ export function useJam(
   const actions = useRef<JamActions | null>(null);
   if (!actions.current) {
     const s = () => sessionRef.current;
+    const orNull = () => {
+      const session = s();
+      return session;
+    };
     actions.current = {
       createRoom,
       joinRoom,
       leave,
       end,
       play: async () => {
-        s()?.wake();
-        await s()?.play();
+        const session = orNull();
+        session?.wake();
+        await session?.play();
       },
-      pause: () => (s() ? s().pause() : Promise.resolve()),
-      seek: (sec) => (s() ? s().seek(sec) : Promise.resolve()),
-      playTrack: (index) => {
+      pause: async () => { await orNull()?.pause(); },
+      seek: async (sec) => { await orNull()?.seek(sec); },
+      playTrack: async (index) => {
         const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        if (!s() || !trackId) return Promise.resolve();
-        return s().setTrack(trackId);
+        const session = orNull();
+        if (!session || !trackId) return;
+        await session.setTrack(trackId);
       },
-      addToQueue: (index) => {
+      addToQueue: async (index) => {
         const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        if (!s() || !trackId) return Promise.resolve();
-        return s().addToQueue(trackId);
+        const session = orNull();
+        if (!session || !trackId) return;
+        await session.addToQueue(trackId);
       },
-      removeFromQueue: (queueItemId) =>
-        s() ? s().removeFromQueue(queueItemId) : Promise.resolve(),
-      playQueueItem: (queueItemId) => {
+      removeFromQueue: async (queueItemId) => {
+        await orNull()?.removeFromQueue(queueItemId);
+      },
+      playQueueItem: async (queueItemId) => {
         const item = jamStateRef.current?.queue.find((q) => q.id === queueItemId);
-        if (!s() || !item) return Promise.resolve();
-        return s().setTrack(item.trackId);
+        const session = orNull();
+        if (!session || !item) return;
+        await session.setTrack(item.trackId);
       },
-      suggestTrack: (index) => {
+      suggestTrack: async (index) => {
         const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        if (!s() || !trackId) return Promise.resolve();
-        return s().suggestTrack(trackId);
+        const session = orNull();
+        if (!session || !trackId) return;
+        await session.suggestTrack(trackId);
       },
-      setCollaborative: (on) => (s() ? s().setCollaborative(on) : Promise.resolve()),
-      sendChat: (text) => s()?.sendChat(text),
-      sendReaction: (emoji) => s()?.sendReaction(emoji),
-      startSleepTimer: (ms) => s()?.startSleepTimer(ms),
-      cancelSleepTimer: () => s()?.cancelSleepTimer(),
+      setCollaborative: async (on) => { await orNull()?.setCollaborative(on); },
+      sendChat: (text) => orNull()?.sendChat(text),
+      sendReaction: (emoji) => orNull()?.sendReaction(emoji),
+      startSleepTimer: (ms) => orNull()?.startSleepTimer(ms),
+      cancelSleepTimer: () => orNull()?.cancelSleepTimer(),
     };
   }
 
