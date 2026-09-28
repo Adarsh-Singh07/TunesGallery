@@ -45,6 +45,7 @@ export interface PlaybackControls {
   disconnectSpotify: () => void;
   initializePlayer: () => void;
   setSongs: (songs: Song[]) => void;
+  setRate: (rate: number) => void;
 }
 
 export function usePlayback(songs: Song[]): {
@@ -100,6 +101,7 @@ export function usePlayback(songs: Song[]): {
       disconnectSpotify: () => managerRef.current?.disconnectSpotify(),
       initializePlayer: () => void managerRef.current?.initializeDefaultProvider(),
       setSongs: (songs) => managerRef.current?.setSongs(songs),
+      setRate: (rate) => void managerRef.current?.setRate(rate),
     }),
     [],
   );

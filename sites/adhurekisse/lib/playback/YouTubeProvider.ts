@@ -214,6 +214,18 @@ export class YouTubeProvider implements PlaybackProvider {
     this.patch({ isMuted: muted });
   }
 
+  async setRate(rate: number): Promise<void> {
+    // The IFrame API's setPlaybackRate accepts standard rates only; nudge
+    // requests beyond that are ignored — YouTube tracks sync via seek.
+    const r = (this.player as unknown as { setPlaybackRate?: (r: number) => void } | null)
+      ?.setPlaybackRate;
+    if (typeof r === "function") {
+      const allowed = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+      const snapped = allowed.reduce((a, b) => (Math.abs(b - rate) < Math.abs(a - rate) ? b : a), 1);
+      if (snapped === 1 || Math.abs(rate - 1) <= 0.05) r.call(this.player, 1);
+    }
+  }
+
   // ── State ───────────────────────────────────────────────────────────────────
 
   getState(): ProviderState {

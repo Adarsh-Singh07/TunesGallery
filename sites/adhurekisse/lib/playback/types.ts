@@ -42,6 +42,13 @@ export interface PlaybackProvider {
   seek(seconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>; // 0–1
   setMuted(muted: boolean): Promise<void>;
+  /**
+   * Fine-grained playback-rate nudge used by jam drift correction.
+   * Providers that cannot adjust rate accept and ignore this.
+   */
+  setRate?(rate: number): Promise<void>;
+  /** Preload a track without starting audible playback (jam readiness). */
+  cue?(trackRef: string): Promise<void>;
 
   /** Returns a snapshot of current state (no subscription needed for reads) */
   getState(): ProviderState;

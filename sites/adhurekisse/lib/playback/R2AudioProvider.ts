@@ -171,6 +171,33 @@ export class R2AudioProvider implements PlaybackProvider {
     this.patch({ isMuted: muted });
   }
 
+  async setRate(rate: number): Promise<void> {
+    if (this.audio) {
+      // clamp to ±3% territory used by drift correction
+      this.audio.playbackRate = Math.min(1.05, Math.max(0.95, rate));
+    }
+  }
+
+  /** Preload the stream (fetch URL + buffer) without audible playback. */
+  async cue(trackRef: string): Promise<void> {
+    if (!this.audio) return;
+    try {
+      const stream = await this.fetchStreamUrl(trackRef);
+      this.streamUrl = stream.url;
+      this.streamExpiresAt = stream.expiresAt;
+      this.lastRefreshAt = Date.now();
+      this.trackId = trackRef;
+      this.audio.src = stream.url;
+      this.audio.load();
+      this.patch({ isLoading: false, hasError: false, errorMessage: "", currentTime: 0 });
+    } catch (err) {
+      this.patch({
+        hasError: true,
+        errorMessage: err instanceof Error ? err.message : "Preload failed.",
+      });
+    }
+  }
+
   getState(): ProviderState {
     return { ...this._state };
   }

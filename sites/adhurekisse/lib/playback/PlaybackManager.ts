@@ -103,6 +103,33 @@ export class PlaybackManager {
     this.currentIndex = index;
     this.notify();
     if (autoPlay) await this.loadCurrentSong(true);
+    else await this.cueCurrentSong();
+  }
+
+  /**
+   * Preload a song without audible playback — used by the jam readiness
+   * handshake so both devices buffer before the host starts the clock.
+   */
+  private async cueCurrentSong(): Promise<void> {
+    const song = this.currentSong;
+    if (!song) return;
+
+    if (song.playback?.r2TrackId && this._activeProviderId !== "r2") {
+      await this.switchProvider("r2");
+    }
+
+    try {
+      await this.ensureProviderReady();
+      await this.subscribeToProvider();
+    } catch {
+      return;
+    }
+
+    const provider = this.activeProvider;
+    const trackRef = this.getTrackRef(song);
+    if (provider && trackRef && typeof provider.cue === "function") {
+      await provider.cue(trackRef).catch(() => {});
+    }
   }
 
   async next(): Promise<void> {
@@ -187,6 +214,10 @@ export class PlaybackManager {
 
   async setMuted(muted: boolean): Promise<void> {
     await this.activeProvider?.setMuted(muted);
+  }
+
+  async setRate(rate: number): Promise<void> {
+    await this.activeProvider?.setRate?.(rate);
   }
 
   toggleShuffle(): void {
