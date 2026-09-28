@@ -7,6 +7,7 @@
 
 -- ── Extensions ──────────────────────────────────────────────────────────────
 create extension if not exists pgcrypto;   -- gen_random_uuid()
+create extension if not exists citext;     -- case-insensitive invitation emails
 
 -- ── Enums ───────────────────────────────────────────────────────────────────
 create type public.track_status   as enum ('pending', 'ready', 'failed');
