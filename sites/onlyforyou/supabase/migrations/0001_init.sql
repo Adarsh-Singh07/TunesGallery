@@ -624,6 +624,24 @@ create trigger tracks_touch before update on public.tracks
   for each row execute function public.touch_updated_at();
 
 -- ═════════════════════════════════════════════════════════════════════════════
+-- PRIVILEGES — RLS filters rows, but PostgREST still needs table/function
+-- grants for the authenticated role (Supabase default ACLs grant no CRUD on
+-- tables created by the postgres role). Scoped to the new objects only.
+-- ═════════════════════════════════════════════════════════════════════════════
+grant select, insert, update, delete on
+  public.profiles, public.invitations, public.tracks, public.track_permissions,
+  public.playlists, public.playlist_tracks, public.jam_rooms, public.jam_participants,
+  public.jam_room_state, public.jam_queue, public.jam_events
+  to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+grant execute on function
+  public.current_uid(), public.current_is_admin(), public.has_track_access(uuid),
+  public.server_time(), public.jam_create_room(boolean), public.jam_join_room(text),
+  public.jam_leave_room(uuid), public.jam_heartbeat(uuid, text),
+  public.jam_apply_command(uuid, uuid, text, jsonb, bigint), public.jam_expire_rooms()
+  to authenticated;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 -- REALTIME — deliver authoritative state changes to subscribed members.
 -- RLS filters postgres_changes payloads to rows the caller can SELECT.
 -- ═════════════════════════════════════════════════════════════════════════════
