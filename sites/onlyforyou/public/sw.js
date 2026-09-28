@@ -1,26 +1,30 @@
-// OnlyForYou — Minimal service worker for PWA offline support
-const CACHE = "ofy-v1";
-const PRECACHE = ["/", "/manifest.json", "/silence.wav"];
-
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(PRECACHE))
-  );
+// Adhure Kisse service worker — PWA shell only.
+//
+// Deliberately NOT a playback engine and NOT a media cache:
+//  • audio is streamed directly by the page's HTMLAudioElement
+//  • /api/* responses (presigned URLs, permissions) are never cached
+//  • cross-origin traffic (R2 presigned GETs, YouTube) is never intercepted
+self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET") return;
-  e.respondWith(
-    caches.match(e.request).then((cached) => cached ?? fetch(e.request))
-  );
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  // Pass through everything privileged, ranged, or cross-origin
+  if (
+    event.request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith("/api/") ||
+    event.request.headers.get("range")
+  ) {
+    return;
+  }
+
+  // Same-origin static assets pass through untouched (future: offline shell)
+  return;
 });

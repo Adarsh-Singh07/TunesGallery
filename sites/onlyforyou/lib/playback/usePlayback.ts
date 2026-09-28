@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ManagerState, RepeatMode } from "./types";
+import type { ManagerState, ProviderId, RepeatMode } from "./types";
 import { DEFAULT_PROVIDER_STATE } from "./types";
 import { PlaybackManager } from "./PlaybackManager";
 import type { Song } from "../../data/songs";
@@ -20,6 +20,7 @@ const INITIAL_STATE: ManagerState = {
   hasError: false,
   errorMessage: "",
   hasYouTubeId: false,
+  hasR2Track: false,
 };
 
 export interface PlaybackControls {
@@ -31,7 +32,11 @@ export interface PlaybackControls {
   toggleMute: () => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
+  selectSong: (index: number) => void;
+  switchProvider: (id: ProviderId) => void;
   initializePlayer: () => void;
+  setSongs: (songs: Song[]) => void;
+  setRate: (rate: number) => void;
 }
 
 export function usePlayback(songs: Song[]): {
@@ -75,7 +80,11 @@ export function usePlayback(songs: Song[]): {
       },
       toggleShuffle: () => managerRef.current?.toggleShuffle(),
       cycleRepeat: () => managerRef.current?.cycleRepeat(),
+      selectSong: (index) => void managerRef.current?.selectSong(index),
+      switchProvider: (id) => void managerRef.current?.switchProvider(id),
       initializePlayer: () => void managerRef.current?.initializeDefaultProvider(),
+      setSongs: (songs) => managerRef.current?.setSongs(songs),
+      setRate: (rate) => void managerRef.current?.setRate(rate),
     }),
     [],
   );

@@ -743,6 +743,15 @@ export default function MusicRoom() {
             joinError={jam.joinError}
             actions={jam.actions}
             currentTrackTitle={song?.title}
+            libraryTracks={allSongs
+              .map((s, index) => ({ index, s }))
+              .filter(({ s }) => !!s.playback?.r2TrackId)
+              .map(({ index, s }) => ({
+                index,
+                trackId: s.playback.r2TrackId!,
+                title: s.title,
+                artist: s.artist,
+              }))}
           />
         )}
       </AnimatePresence>

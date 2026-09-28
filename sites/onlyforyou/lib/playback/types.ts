@@ -2,7 +2,7 @@
 // Shared types for the playback abstraction layer (YouTube-only version)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ProviderId = "youtube" | "local";
+export type ProviderId = "r2" | "youtube" | "local";
 export type RepeatMode = "none" | "all" | "one";
 
 export interface ProviderState {
@@ -28,6 +28,13 @@ export interface PlaybackProvider {
   seek(seconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>;
   setMuted(muted: boolean): Promise<void>;
+  /**
+   * Fine-grained playback-rate nudge used by jam drift correction.
+   * Providers that cannot adjust rate accept and ignore this.
+   */
+  setRate?(rate: number): Promise<void>;
+  /** Preload a track without starting audible playback (jam readiness). */
+  cue?(trackRef: string): Promise<void>;
   getState(): ProviderState;
   subscribe(listener: StateListener): () => void;
   onEnded(callback: () => void): () => void;
@@ -35,6 +42,8 @@ export interface PlaybackProvider {
 }
 
 export interface PlaybackReference {
+  /** Private R2 track UUID — preferred when an authorized file exists */
+  r2TrackId?: string;
   youtubeId?: string;
   localPath?: string;
 }
@@ -53,6 +62,7 @@ export interface ManagerState {
   hasError: boolean;
   errorMessage: string;
   hasYouTubeId: boolean;
+  hasR2Track: boolean;
 }
 
 export type ManagerListener = (state: ManagerState) => void;
