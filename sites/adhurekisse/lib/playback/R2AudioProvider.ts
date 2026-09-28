@@ -46,7 +46,10 @@ export class R2AudioProvider implements PlaybackProvider {
 
     this.audio = new Audio();
     this.audio.preload = "metadata";
-    this.audio.crossOrigin = "anonymous";
+    // Deliberately NO crossOrigin attribute: media-element requests then run
+    // in no-cors mode, so playback never depends on the bucket's CORS policy
+    // (and Range requests can't trip a preflight). CORS is only needed for
+    // the direct XHR uploads in the admin dashboard.
 
     this.audio.addEventListener("timeupdate", () => {
       this.patch({ currentTime: this.audio!.currentTime });

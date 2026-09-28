@@ -408,6 +408,58 @@ export default function AdminPage() {
       {notice && <p style={{ fontSize: 12, color: "var(--ta, #c9a560)" }}>{notice}</p>}
       {pageError && <p role="alert" style={{ fontSize: 12, color: "#e08a7a" }}>{pageError}</p>}
 
+      {/* ── ACCOUNT: change password ────────────────────────────────────────── */}
+      <details style={{ ...jobCard, margin: "12px 0" }}>
+        <summary style={{ fontSize: 12, letterSpacing: "0.1em", cursor: "pointer", opacity: 0.8 }}>
+          CHANGE MY PASSWORD
+        </summary>
+        <form
+          style={{ display: "grid", gap: 8, marginTop: 12, maxWidth: 320 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setPageError(null);
+            setNotice(null);
+            const form = e.currentTarget;
+            const data = new FormData(form);
+            const next = String(data.get("newPassword") ?? "");
+            if (next.length < 8) {
+              setPageError("Password must be at least 8 characters.");
+              return;
+            }
+            if (next !== String(data.get("confirm") ?? "")) {
+              setPageError("Passwords don't match.");
+              return;
+            }
+            const { error: upErr } = await supabase!.auth.updateUser({ password: next });
+            if (upErr) {
+              setPageError(upErr.message);
+              return;
+            }
+            form.reset();
+            setNotice("Password updated.");
+          }}
+        >
+          <input
+            name="newPassword"
+            type="password"
+            required
+            minLength={8}
+            placeholder="New password (min 8 characters)"
+            aria-label="New password"
+            style={rowInput}
+          />
+          <input
+            name="confirm"
+            type="password"
+            required
+            placeholder="Repeat new password"
+            aria-label="Repeat new password"
+            style={rowInput}
+          />
+          <button type="submit" style={cta}>UPDATE PASSWORD</button>
+        </form>
+      </details>
+
       {/* ── UPLOADS ─────────────────────────────────────────────────────────── */}
       {tab === "uploads" && (
         <section aria-label="Upload audio files">

@@ -11,6 +11,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
+  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState<"otp" | "password">("otp");
   const [stage, setStage] = useState<"email" | "verify">("email");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,37 @@ export default function LoginPage() {
     }
   }
 
+  async function handlePassword(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const { data, error: pwError } = await supabase!.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (pwError) {
+        setError("Email or password didn't match.");
+        return;
+      }
+      if (data.session) {
+        const { data: profile } = await supabase!
+          .from("profiles")
+          .select("id")
+          .eq("id", data.session.user.id)
+          .single();
+        if (!profile) {
+          await supabase!.auth.signOut();
+          setError("Your account isn't set up yet. Ask the owner to re-invite you.");
+          return;
+        }
+        router.replace("/");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="login-page" style={{ minHeight: "100dvh", display: "grid", placeItems: "center", padding: "24px" }}>
       <motion.div
@@ -101,6 +134,73 @@ export default function LoginPage() {
             Private access isn&apos;t configured on this deployment yet. The room stays open
             without accounts until the owner enables sign-in.
           </p>
+        ) : mode === "password" ? (
+          <form onSubmit={handlePassword}>
+            <label htmlFor="email" style={{ fontSize: 12, letterSpacing: "0.08em", opacity: 0.7 }}>
+              YOUR EMAIL
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={{
+                width: "100%",
+                marginTop: 8,
+                marginBottom: 16,
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--border, rgba(255,255,255,0.12))",
+                background: "rgba(0,0,0,0.25)",
+                color: "inherit",
+                fontSize: 15,
+              }}
+            />
+            <label htmlFor="password" style={{ fontSize: 12, letterSpacing: "0.08em", opacity: 0.7 }}>
+              PASSWORD
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: "100%",
+                marginTop: 8,
+                marginBottom: 16,
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--border, rgba(255,255,255,0.12))",
+                background: "rgba(0,0,0,0.25)",
+                color: "inherit",
+                fontSize: 15,
+              }}
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              style={{
+                width: "100%",
+                padding: "13px 0",
+                borderRadius: 10,
+                border: "none",
+                background: "var(--accent, #c9a560)",
+                color: "#0a0a0a",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                fontSize: 14,
+                cursor: busy ? "wait" : "pointer",
+              }}
+            >
+              {busy ? "SIGNING IN…" : "SIGN IN"}
+            </button>
+          </form>
         ) : stage === "email" ? (
           <form onSubmit={handleSendCode}>
             <label htmlFor="email" style={{ fontSize: 12, letterSpacing: "0.08em", opacity: 0.7 }}>
@@ -218,6 +318,34 @@ export default function LoginPage() {
           <p role="alert" style={{ marginTop: 14, fontSize: 12, color: "#e08a7a" }}>
             {error}
           </p>
+        )}
+
+        {configured && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === "otp" ? "password" : "otp");
+              setStage("email");
+              setError(null);
+              setNotice(null);
+            }}
+            style={{
+              width: "100%",
+              marginTop: 14,
+              padding: "8px 0",
+              background: "none",
+              border: "none",
+              color: "inherit",
+              opacity: 0.6,
+              fontSize: 12,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            {mode === "otp"
+              ? "Sign in with a password instead"
+              : "Sign in with an email code instead"}
+          </button>
         )}
 
         <hr style={{ border: "none", borderTop: "1px solid var(--border, rgba(255,255,255,0.08))", margin: "22px 0 14px" }} />
