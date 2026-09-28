@@ -25,6 +25,7 @@ const INITIAL_STATE: ManagerState = {
   errorMessage: "",
   hasYouTubeId: false,
   hasSpotifyId: false,
+  hasR2Track: false,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ export interface PlaybackControls {
   connectSpotify: () => void;
   disconnectSpotify: () => void;
   initializePlayer: () => void;
+  setSongs: (songs: Song[]) => void;
 }
 
 export function usePlayback(songs: Song[]): {
@@ -97,6 +99,7 @@ export function usePlayback(songs: Song[]): {
       connectSpotify: () => void managerRef.current?.connectSpotify(),
       disconnectSpotify: () => managerRef.current?.disconnectSpotify(),
       initializePlayer: () => void managerRef.current?.initializeDefaultProvider(),
+      setSongs: (songs) => managerRef.current?.setSongs(songs),
     }),
     [],
   );

@@ -363,6 +363,15 @@ create policy queue_modify on public.jam_queue
         and (r.host_id = auth.uid() or (r.collaborative and r.guest_id = auth.uid()))
     )
   );
+create policy queue_reorder on public.jam_queue
+  for update to authenticated using (
+    exists (
+      select 1 from public.jam_rooms r
+      where r.id = room_id
+        and r.status in ('open','active')
+        and (r.host_id = auth.uid() or (r.collaborative and r.guest_id = auth.uid()))
+    )
+  ) with check (true);
 
 -- events: members can read their own room's trace; inserts happen via RPC
 create policy events_select on public.jam_events

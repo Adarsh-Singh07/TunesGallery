@@ -2,7 +2,7 @@
 // Shared types for the playback abstraction layer
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ProviderId = "youtube" | "spotify" | "local";
+export type ProviderId = "r2" | "youtube" | "spotify" | "local";
 export type RepeatMode = "none" | "all" | "one";
 
 /** Low-level state emitted by each provider */
@@ -58,6 +58,8 @@ export interface PlaybackProvider {
 
 /** References to locate a song on each provider's platform */
 export interface PlaybackReference {
+  /** Private R2 track UUID — preferred when an authorized file exists */
+  r2TrackId?: string;
   youtubeId?: string;
   spotifyTrackId?: string;
   /** Optional local file path — only used for dev/testing via LocalAudioProvider */
@@ -89,6 +91,7 @@ export interface ManagerState {
   // Track availability
   hasYouTubeId: boolean;
   hasSpotifyId: boolean;
+  hasR2Track: boolean;
 }
 
 export type ManagerListener = (state: ManagerState) => void;
