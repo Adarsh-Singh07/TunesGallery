@@ -66,18 +66,25 @@ When Supabase env vars are absent the site falls back to **open access**
     "AllowedOrigins": [
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://adhurekisse.adarshsingh.in",
-      "https://only-for-you-olive.vercel.app"
+      "https://*.vercel.app",
+      "https://adhurekisse.adarshsingh.in"
     ],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["content-type"],
+    "AllowedHeaders": [
+      "content-type",
+      "x-amz-sdk-checksum-algorithm",
+      "x-amz-checksum-crc32"
+    ],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
 
-Narrow `AllowedOrigins` to the domains you actually use. Never use `*` for a
-private bucket.
+Important: **`https://*.vercel.app` must stay in the list** — Vercel issues a
+unique preview URL for every deployment, so exact preview origins will break
+on the next deploy. This is safe: CORS only governs which *browser origins*
+may present a request; the actual authorization is the short-lived presigned
+URL itself, which only your server can mint.
 
 ### How access control works
 
