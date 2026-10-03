@@ -61,7 +61,7 @@ create trigger on_auth_user_created
 create table public.invitations (
   id         uuid primary key default gen_random_uuid(),
   email      citext not null,
-  code       text not null unique default encode(gen_random_bytes(9), 'hex'),
+  code       text not null unique default encode(extensions.gen_random_bytes(9), 'hex'),
   invited_by uuid not null references public.profiles (id) on delete cascade,
   expires_at timestamptz not null default now() + interval '14 days',
   accepted_at timestamptz,
@@ -411,7 +411,7 @@ begin
   end if;
 
   loop
-    v_code := upper(substr(encode(gen_random_bytes(6), 'base64'), 1, 6));
+    v_code := upper(substr(encode(extensions.gen_random_bytes(6), 'base64'), 1, 6));
     v_code := translate(v_code, '/+=', 'ABX');
     exit when not exists (select 1 from public.jam_rooms where code = v_code);
   end loop;
