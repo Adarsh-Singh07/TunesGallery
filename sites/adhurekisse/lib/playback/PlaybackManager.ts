@@ -22,6 +22,7 @@ import type {
 } from "./types";
 import { DEFAULT_PROVIDER_STATE } from "./types";
 import type { Song } from "../../data/songs";
+import { R2AudioProvider } from "./R2AudioProvider";
 import { YouTubeProvider } from "./YouTubeProvider";
 import { SpotifyProvider } from "./SpotifyProvider";
 import { LocalAudioProvider } from "./LocalAudioProvider";
@@ -67,10 +68,28 @@ export class PlaybackManager {
     this._spotifyConnected = isSpotifyConnected();
     this.buildShuffleOrder();
 
-    // Register providers
+    // Register providers — R2 private audio is registered first; selection
+    // still only prefers it when the selected song actually has an R2 file.
+    this.providers.set("r2", new R2AudioProvider());
     this.providers.set("youtube", new YouTubeProvider());
     this.providers.set("spotify", new SpotifyProvider());
     this.providers.set("local", new LocalAudioProvider());
+  }
+
+  // ── Public: dynamic library (R2 tracks arrive after login) ────────────────
+
+  /** Replace the playlist (e.g. after fetching the private R2 library). */
+  setSongs(songs: Song[]): void {
+    const previousId = this.currentSong?.id;
+    this.songs = songs;
+    this.buildShuffleOrder();
+    if (previousId) {
+      const idx = songs.findIndex((s) => s.id === previousId);
+      this.currentIndex = idx !== -1 ? idx : 0;
+    } else {
+      this.currentIndex = 0;
+    }
+    this.notify();
   }
 
   // ── Public: playlist ──────────────────────────────────────────────────────
@@ -84,6 +103,33 @@ export class PlaybackManager {
     this.currentIndex = index;
     this.notify();
     if (autoPlay) await this.loadCurrentSong(true);
+    else await this.cueCurrentSong();
+  }
+
+  /**
+   * Preload a song without audible playback — used by the jam readiness
+   * handshake so both devices buffer before the host starts the clock.
+   */
+  private async cueCurrentSong(): Promise<void> {
+    const song = this.currentSong;
+    if (!song) return;
+
+    if (song.playback?.r2TrackId && this._activeProviderId !== "r2") {
+      await this.switchProvider("r2");
+    }
+
+    try {
+      await this.ensureProviderReady();
+      await this.subscribeToProvider();
+    } catch {
+      return;
+    }
+
+    const provider = this.activeProvider;
+    const trackRef = this.getTrackRef(song);
+    if (provider && trackRef && typeof provider.cue === "function") {
+      await provider.cue(trackRef).catch(() => {});
+    }
   }
 
   async next(): Promise<void> {
@@ -168,6 +214,10 @@ export class PlaybackManager {
 
   async setMuted(muted: boolean): Promise<void> {
     await this.activeProvider?.setMuted(muted);
+  }
+
+  async setRate(rate: number): Promise<void> {
+    await this.activeProvider?.setRate?.(rate);
   }
 
   toggleShuffle(): void {
@@ -295,6 +345,10 @@ export class PlaybackManager {
   // ── Public: teardown ──────────────────────────────────────────────────────
 
   destroy(): void {
+    if (this.mediaSessionPositionTimer) {
+      clearInterval(this.mediaSessionPositionTimer);
+      this.mediaSessionPositionTimer = null;
+    }
     this.providerUnsub?.();
     this.providerEndedUnsub?.();
     this.providers.forEach((p) => p.destroy());
@@ -353,21 +407,13 @@ export class PlaybackManager {
     const song = this.currentSong;
     if (!song) return;
 
-    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.title,
-        artist: song.artist,
-        album: song.movie,
-        artwork: [
-          { src: song.artwork?.cover ? `https://adhure-kisse.adarshsingh.in${song.artwork.cover}` : "https://adhure-kisse.adarshsingh.in/favicon.ico", sizes: "512x512", type: "image/jpeg" }
-        ]
-      });
-
-      navigator.mediaSession.setActionHandler("play", () => this.play());
-      navigator.mediaSession.setActionHandler("pause", () => this.pause());
-      navigator.mediaSession.setActionHandler("previoustrack", () => this.previous());
-      navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+    // Prefer the private R2 file when one exists and is authorized; only an
+    // actual available R2 track switches the provider — never a substitution.
+    if (song.playback?.r2TrackId && this._activeProviderId !== "r2") {
+      await this.switchProvider("r2");
     }
+
+    this.updateMediaSession(song);
 
     try {
       await this.ensureProviderReady();
@@ -421,8 +467,66 @@ export class PlaybackManager {
     }
   }
 
+  /**
+   * Full Media Session integration for Android: metadata, transport controls,
+   * seek handlers and continuous position-state updates.
+   */
+  private mediaSessionPositionTimer: ReturnType<typeof setInterval> | null = null;
+
+  private updateMediaSession(song: Song): void {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+
+    const artworkSrc = song.artwork?.cover
+      ? song.artwork.cover.startsWith("http")
+        ? song.artwork.cover
+        : `${window.location.origin}${song.artwork.cover}`
+      : `${window.location.origin}/icon.svg`;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: song.artist,
+      album: song.movie ?? song.album ?? "Adhure Kisse",
+      artwork: [{ src: artworkSrc, sizes: "512x512", type: "image/jpeg" }],
+    });
+
+    navigator.mediaSession.setActionHandler("play", () => void this.play());
+    navigator.mediaSession.setActionHandler("pause", () => void this.pause());
+    navigator.mediaSession.setActionHandler("previoustrack", () => void this.previous());
+    navigator.mediaSession.setActionHandler("nexttrack", () => void this.next());
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+      if (details.seekTime != null) void this.seek(details.seekTime);
+    });
+    navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+      void this.seek(Math.max(0, this._providerState.currentTime - (details.seekOffset ?? 10)));
+    });
+    navigator.mediaSession.setActionHandler("seekforward", (details) => {
+      void this.seek(
+        Math.min(this._providerState.duration, this._providerState.currentTime + (details.seekOffset ?? 10)),
+      );
+    });
+    navigator.mediaSession.setActionHandler("stop", () => void this.pause());
+
+    if (this.mediaSessionPositionTimer) clearInterval(this.mediaSessionPositionTimer);
+    this.mediaSessionPositionTimer = setInterval(() => {
+      if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+      const { isPlaying, currentTime, duration } = this._providerState;
+      if (!duration || !Number.isFinite(duration) || currentTime > duration) return;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration,
+          position: Math.min(currentTime, duration),
+          playbackRate: 1.0,
+        });
+      } catch {
+        /* position state is best-effort */
+      }
+    }, 1000);
+  }
+
   private getTrackRef(song: Song): string | null {
     switch (this._activeProviderId) {
+      case "r2":
+        return song.playback?.r2TrackId ?? null;
       case "youtube":
         return song.playback?.youtubeId ?? null;
       case "spotify":
@@ -437,6 +541,10 @@ export class PlaybackManager {
   private getMissingRefMessage(): string {
     const song = this.currentSong;
     switch (this._activeProviderId) {
+      case "r2":
+        return song?.playback?.youtubeId
+          ? "No private audio for this track yet. Try YouTube."
+          : "No audio file uploaded for this track yet.";
       case "youtube":
         return song?.playback?.spotifyTrackId
           ? "YouTube ID missing for this track. Try Spotify."
@@ -477,6 +585,7 @@ export class PlaybackManager {
       errorMessage: this._providerState.errorMessage,
       hasYouTubeId: !!song?.playback?.youtubeId,
       hasSpotifyId: !!song?.playback?.spotifyTrackId,
+      hasR2Track: !!song?.playback?.r2TrackId,
     };
   }
 

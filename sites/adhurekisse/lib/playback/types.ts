@@ -2,7 +2,7 @@
 // Shared types for the playback abstraction layer
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ProviderId = "youtube" | "spotify" | "local";
+export type ProviderId = "r2" | "youtube" | "spotify" | "local";
 export type RepeatMode = "none" | "all" | "one";
 
 /** Low-level state emitted by each provider */
@@ -42,6 +42,13 @@ export interface PlaybackProvider {
   seek(seconds: number): Promise<void>;
   setVolume(volume: number): Promise<void>; // 0–1
   setMuted(muted: boolean): Promise<void>;
+  /**
+   * Fine-grained playback-rate nudge used by jam drift correction.
+   * Providers that cannot adjust rate accept and ignore this.
+   */
+  setRate?(rate: number): Promise<void>;
+  /** Preload a track without starting audible playback (jam readiness). */
+  cue?(trackRef: string): Promise<void>;
 
   /** Returns a snapshot of current state (no subscription needed for reads) */
   getState(): ProviderState;
@@ -58,6 +65,8 @@ export interface PlaybackProvider {
 
 /** References to locate a song on each provider's platform */
 export interface PlaybackReference {
+  /** Private R2 track UUID — preferred when an authorized file exists */
+  r2TrackId?: string;
   youtubeId?: string;
   spotifyTrackId?: string;
   /** Optional local file path — only used for dev/testing via LocalAudioProvider */
@@ -89,6 +98,7 @@ export interface ManagerState {
   // Track availability
   hasYouTubeId: boolean;
   hasSpotifyId: boolean;
+  hasR2Track: boolean;
 }
 
 export type ManagerListener = (state: ManagerState) => void;

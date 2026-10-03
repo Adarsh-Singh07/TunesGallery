@@ -100,6 +100,12 @@ export class LocalAudioProvider implements PlaybackProvider {
     this.patch({ isMuted: muted });
   }
 
+  async setRate(rate: number): Promise<void> {
+    if (this.audio) {
+      this.audio.playbackRate = Math.min(1.05, Math.max(0.95, rate));
+    }
+  }
+
   getState(): ProviderState {
     return { ...this._state };
   }

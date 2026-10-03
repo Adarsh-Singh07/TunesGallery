@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Disc3, MessageCircle } from "lucide-react";
+import { Disc3, MessageCircle, Users, LogOut, ShieldCheck, LogIn } from "lucide-react";
 
-import { songs } from "../data/songs";
+import { songs as baseSongs } from "../data/songs";
 import { site } from "../data/site";
 import { getQuoteForSong } from "../data/quotes";
 import { getThemeForSong, type CinematicTheme, THEMES, THEME_ORDER, type ThemeId } from "../data/themes";
+import type { Song } from "../data/songs";
 
 import { LiveListeners, LiveTimeWeather } from "./TopbarWidgets";
 import ChatPanel from "./ChatPanel";
+import AuthGate from "./AuthGate";
+import JamPanel from "./jam/JamPanel";
 import { supabase } from "../lib/supabase";
+import { getSession, getProfile, signOut, authedFetch, type Profile, type TrackRow } from "../lib/auth";
+import { useJam } from "../lib/jam/useJam";
 
-import { usePlayback } from "../lib/playback/usePlayback";
+import { usePlayback, type PlaybackControls } from "../lib/playback/usePlayback";
+import type { PlaybackManager } from "../lib/playback/PlaybackManager";
 import {
   markSessionEntered,
   hasSessionEntered,
@@ -57,11 +63,28 @@ function buildThemeStyle(theme: CinematicTheme): React.CSSProperties {
   } as React.CSSProperties;
 }
 
+/** Map a private-library row onto the Song shape the player understands. */
+function trackToSong(t: TrackRow): Song {
+  return {
+    id: `r2-${t.id}`,
+    title: t.title,
+    artist: t.artist,
+    album: t.album ?? undefined,
+    movie: t.movie ?? undefined,
+    year: t.year ?? undefined,
+    tags: t.tags ?? [],
+    artwork: { cover: t.artworkUrl ?? "/icon.svg" },
+    playback: { r2TrackId: t.id },
+    accent: "#c9a560",
+  };
+}
+
 export default function MusicRoom() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [chatOpen, setChatOpen] = useState(false);
+  const [jamOpen, setJamOpen] = useState(false);
   const [hasEntered, setHasEntered]           = useState(false);
   const [resumeState, setResumeState]         = useState<ListeningState | null>(null);
   const [manualThemeId, setManualThemeId]     = useState<ThemeId | null>(null);
@@ -69,10 +92,28 @@ export default function MusicRoom() {
     THEMES[THEME_ORDER[0]]
   );
 
-  const { state, controls } = usePlayback(songs);
+  // ── Auth (active only when Supabase is configured) ──────────────────────────
+  const authEnabled = !!supabase;
+  const [authChecked, setAuthChecked] = useState(!authEnabled);
+  const [signedIn, setSignedIn] = useState(!authEnabled);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  // ── Private R2 library (empty until signed in and tracks exist) ─────────────
+  const [r2Songs, setR2Songs] = useState<Song[]>([]);
+  const allSongs = useMemo(() => [...baseSongs, ...r2Songs], [r2Songs]);
+
+  const { state, controls, manager } = usePlayback(baseSongs);
+  const managerRef = useRef<PlaybackManager | null>(null);
+  managerRef.current = manager;
+  const getManager = useCallback(() => managerRef.current, []);
+
+  const jam = useJam(getManager, allSongs);
+  const jamActive = jam.phase === "active" && !!jam.jamState;
+  const jamCanControl = jam.jamState?.canControl ?? false;
+  const jamPlaying = jam.jamState?.state?.playbackState === "playing";
 
   // Derive current song
-  const song = songs[state.currentIndex] ?? null;
+  const song = allSongs[state.currentIndex] ?? null;
 
   const [listeners, setListeners] = useState(1);
 
@@ -84,6 +125,74 @@ export default function MusicRoom() {
       if (ls) setResumeState(ls);
     }
   }, []);
+
+  // On mount: resolve auth state
+  useEffect(() => {
+    if (!authEnabled) return;
+    let cancelled = false;
+    (async () => {
+      const session = await getSession();
+      if (cancelled) return;
+      if (!session) {
+        setSignedIn(false);
+        setAuthChecked(true);
+        return;
+      }
+      const p = await getProfile();
+      if (cancelled) return;
+      setProfile(p);
+      setSignedIn(!!p);
+      setAuthChecked(true);
+    })();
+    const { data } = supabase!.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        setSignedIn(false);
+        setProfile(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
+  }, [authEnabled]);
+
+  // Fetch the private library when signed in
+  useEffect(() => {
+    if (!authEnabled || !signedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await authedFetch("/api/tracks");
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { tracks: TrackRow[] };
+        const mapped = (body.tracks ?? [])
+          .filter((t) => t.status === "ready")
+          .map(trackToSong);
+        if (!cancelled) setR2Songs(mapped);
+      } catch {
+        /* library stays empty — YouTube songs still play */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authEnabled, signedIn]);
+
+  // Push the merged library into the manager once fetched
+  useEffect(() => {
+    if (r2Songs.length > 0) controls.setSongs(allSongs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [r2Songs.length]);
+
+  // Auto-join a jam from an invite link (?jam=CODE)
+  const autoJoinTried = useRef(false);
+  useEffect(() => {
+    if (autoJoinTried.current) return;
+    if (!signedIn || !hasEntered || jam.phase !== "idle") return;
+    const code = new URLSearchParams(window.location.search).get("jam");
+    if (code) {
+      autoJoinTried.current = true;
+      void jam.actions.joinRoom(code);
+    }
+  }, [signedIn, hasEntered, jam.phase, jam.actions]);
 
   // Supabase Presence for live listening count
   useEffect(() => {
@@ -147,9 +256,9 @@ export default function MusicRoom() {
     }
   }, [manualThemeId]);
 
-  // Persist listening state while playing
+  // Persist listening state while playing (solo listening only)
   useEffect(() => {
-    if (hasEntered && song && state.isPlaying) {
+    if (!jamActive && hasEntered && song && state.isPlaying) {
       import("../lib/persistence").then(({ saveListeningState }) => {
         saveListeningState({
           songId: song.id,
@@ -158,17 +267,63 @@ export default function MusicRoom() {
         });
       });
     }
-  }, [hasEntered, song?.id, state.currentTime, state.activeProvider, state.isPlaying]);
+  }, [jamActive, hasEntered, song?.id, state.currentTime, state.activeProvider, state.isPlaying]);
 
   // Derived quote
   const quote = song ? getQuoteForSong(song.id, activeTheme.id) : null;
 
   const hasRef =
-    state.activeProvider === "youtube"
+    state.activeProvider === "r2"
+      ? state.hasR2Track
+      : state.activeProvider === "youtube"
       ? state.hasYouTubeId
       : state.activeProvider === "spotify"
       ? state.hasSpotifyId
       : false;
+
+  // ── Controls routing: solo → direct; jam → shared-timeline commands ────────
+  const soloControls = controls;
+  const jamControls: PlaybackControls = useMemo(
+    () => ({
+      togglePlay: () => {
+        if (!jamCanControl) return;
+        void (jamPlaying ? jam.actions.pause() : jam.actions.play());
+      },
+      previous: () => {
+        if (!jamCanControl) return;
+        void jam.actions.seek(0);
+      },
+      next: () => {
+        if (!jamCanControl) return;
+        const q = jam.jamState?.queue ?? [];
+        const currentRoomTrackId = jam.jamState?.state?.trackId;
+        const pos = q.findIndex((item) => item.trackId === currentRoomTrackId);
+        const nextItem = pos >= 0 ? q[pos + 1] : q[0];
+        if (nextItem) void jam.actions.playQueueItem(nextItem.id);
+      },
+      seek: (s) => {
+        if (!jamCanControl) return;
+        void jam.actions.seek(s);
+      },
+      setVolume: soloControls.setVolume,
+      toggleMute: soloControls.toggleMute,
+      toggleShuffle: () => {},
+      cycleRepeat: () => {},
+      selectSong: (index) => {
+        if (!jamCanControl) return;
+        void jam.actions.playTrack(index);
+      },
+      switchProvider: soloControls.switchProvider,
+      connectSpotify: soloControls.connectSpotify,
+      disconnectSpotify: soloControls.disconnectSpotify,
+      initializePlayer: soloControls.initializePlayer,
+      setSongs: soloControls.setSongs,
+      setRate: soloControls.setRate,
+    }),
+    [jamCanControl, jamPlaying, jam.actions, jam.jamState?.queue, jam.jamState?.state?.trackId, soloControls],
+  );
+  const effectiveControls = jamActive ? jamControls : soloControls;
+  const effectiveHasRef = jamActive ? (jamCanControl ? state.hasR2Track || hasRef : false) : hasRef;
 
   function handleEnter() {
     markSessionEntered();
@@ -181,7 +336,7 @@ export default function MusicRoom() {
     setHasEntered(true);
 
     if (resume && resumeState) {
-      const idx = songs.findIndex((s) => s.id === resumeState.songId);
+      const idx = allSongs.findIndex((s) => s.id === resumeState.songId);
       if (idx !== -1) {
         if (state.activeProvider !== resumeState.provider) {
           await controls.switchProvider(resumeState.provider);
@@ -197,10 +352,19 @@ export default function MusicRoom() {
 
   function chooseSong(index: number) {
     setLibraryOpen(false);
-    controls.selectSong(index);
+    if (jamActive && jamCanControl) {
+      void jam.actions.playTrack(index);
+    } else if (!jamActive) {
+      controls.selectSong(index);
+    }
   }
 
-  if (!songs.length) {
+  async function handleSignOut() {
+    await signOut();
+    window.location.href = "/login";
+  }
+
+  if (!allSongs.length) {
     return (
       <main className="room" style={{ display: "grid", placeItems: "center" }}>
         <p style={{ color: "var(--tm)", fontFamily: "var(--font-mono)", letterSpacing: "0.15em" }}>
@@ -227,9 +391,16 @@ export default function MusicRoom() {
         isPlaying={state.isPlaying}
       />
 
+      {/* ── Auth gate (before the entry gate) ──────────────────── */}
+      <AnimatePresence>
+        {authEnabled && authChecked && !signedIn && (
+          <AuthGate key="auth" siteName="ADHURE kisse" />
+        )}
+      </AnimatePresence>
+
       {/* ── Entry gate & Resume prompt ────────────────────────── */}
       <AnimatePresence>
-        {!hasEntered && (
+        {!hasEntered && (!authEnabled || signedIn) && (
           resumeState ? (
             <ResumePrompt key="resume" resumeState={resumeState} onDecide={handleResume} />
           ) : (
@@ -253,10 +424,27 @@ export default function MusicRoom() {
           </div>
 
           <div className="topbar-actions">
-            <AtmosphereSelector
-              currentMode={manualThemeId}
-              onSelect={setManualThemeId}
-            />
+            {authEnabled && signedIn && profile?.is_admin && (
+              <a
+                className="archive-btn"
+                href="/admin"
+                aria-label="Owner dashboard"
+                title="Owner dashboard"
+              >
+                <ShieldCheck size={17} strokeWidth={1.5} />
+                <span className="topbar-archive-label">ADMIN</span>
+              </a>
+            )}
+            <button
+              className="archive-btn"
+              onClick={() => setJamOpen(true)}
+              aria-label="Jam together"
+              aria-expanded={jamOpen}
+              title="Jam together"
+            >
+              <Users size={17} strokeWidth={1.5} />
+              <span className="topbar-archive-label">JAM</span>
+            </button>
             <button
               className="archive-btn chat-btn"
               onClick={() => setChatOpen(true)}
@@ -277,6 +465,20 @@ export default function MusicRoom() {
               <Disc3 size={17} strokeWidth={1.5} className="spin-slow" />
               <span className="topbar-archive-label">ARCHIVE</span>
             </button>
+            {authEnabled && (signedIn ? (
+              <button
+                className="archive-btn"
+                onClick={() => void handleSignOut()}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut size={17} strokeWidth={1.5} />
+              </button>
+            ) : (
+              <a className="archive-btn" href="/login" aria-label="Sign in" title="Sign in">
+                <LogIn size={17} strokeWidth={1.5} />
+              </a>
+            ))}
           </div>
         </header>
 
@@ -342,7 +544,7 @@ export default function MusicRoom() {
                 <SongInfo
                   song={song}
                   trackNumber={padTrack(state.currentIndex + 1)}
-                  totalTracks={songs.length}
+                  totalTracks={allSongs.length}
                 />
               )}
 
@@ -356,9 +558,9 @@ export default function MusicRoom() {
                 shuffle={state.shuffle}
                 repeat={state.repeat}
                 hasSong={!!song}
-                hasPlaybackRef={hasRef}
+                hasPlaybackRef={effectiveHasRef}
                 errorMessage={state.errorMessage}
-                controls={controls}
+                controls={effectiveControls}
                 onPlayAction={() => {
                   if (audioRef.current && !state.isPlaying) {
                     audioRef.current.play().catch(() => {});
@@ -370,6 +572,7 @@ export default function MusicRoom() {
                 activeProvider={state.activeProvider}
                 spotifyConnected={state.spotifyConnected}
                 spotifyConnecting={state.spotifyConnecting}
+                hasR2Track={state.hasR2Track}
                 hasYouTubeId={state.hasYouTubeId}
                 hasSpotifyId={state.hasSpotifyId}
                 onSwitch={controls.switchProvider}
@@ -384,7 +587,7 @@ export default function MusicRoom() {
         <footer className="ticker" aria-label="Collection info">
           <span>{site.footer.collectionLabel}</span>
           <span className="ticker-dot" aria-hidden="true">◆</span>
-          <span>{songs.length} SONGS</span>
+          <span>{allSongs.length} SONGS</span>
           <span className="ticker-dot" aria-hidden="true">◆</span>
           <span>{site.footer.mottoLine}</span>
         </footer>
@@ -398,10 +601,14 @@ export default function MusicRoom() {
             <LiveTimeWeather />
           </div>
           <div className="mobile-header-right">
-            <AtmosphereSelector
-              currentMode={manualThemeId}
-              onSelect={setManualThemeId}
-            />
+            {authEnabled && signedIn && profile?.is_admin && (
+              <a className="mobile-btn" href="/admin" title="Owner dashboard">
+                <ShieldCheck size={18} strokeWidth={1.5} />
+              </a>
+            )}
+            <button className="mobile-btn" onClick={() => setJamOpen(true)} title="Jam together">
+              <Users size={18} strokeWidth={1.5} />
+            </button>
             <button
               className="mobile-btn chat-btn"
               onClick={() => setChatOpen(true)}
@@ -462,9 +669,9 @@ export default function MusicRoom() {
               shuffle={state.shuffle}
               repeat={state.repeat}
               hasSong={!!song}
-              hasPlaybackRef={hasRef}
+              hasPlaybackRef={effectiveHasRef}
               errorMessage={state.errorMessage}
-              controls={controls}
+              controls={effectiveControls}
               onPlayAction={() => {
                 if (audioRef.current && !state.isPlaying) {
                   audioRef.current.play().catch(() => {});
@@ -484,6 +691,7 @@ export default function MusicRoom() {
               activeProvider={state.activeProvider}
               spotifyConnected={state.spotifyConnected}
               spotifyConnecting={state.spotifyConnecting}
+              hasR2Track={state.hasR2Track}
               hasYouTubeId={state.hasYouTubeId}
               hasSpotifyId={state.hasSpotifyId}
               onSwitch={controls.switchProvider}
@@ -495,7 +703,7 @@ export default function MusicRoom() {
 
         {/* Footer */}
         <footer className="mobile-footer">
-          <span>{site.footer.collectionLabel} • {songs.length} SONGS</span>
+          <span>{site.footer.collectionLabel} • {allSongs.length} SONGS</span>
         </footer>
       </div>
 
@@ -513,7 +721,7 @@ export default function MusicRoom() {
               aria-hidden="true"
             />
             <Library
-              songs={songs}
+              songs={allSongs}
               currentIndex={state.currentIndex}
               isPlaying={state.isPlaying}
               onSelect={chooseSong}
@@ -524,6 +732,30 @@ export default function MusicRoom() {
       </AnimatePresence>
 
       <ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+
+      <AnimatePresence>
+        {jamOpen && (
+          <JamPanel
+            open={jamOpen}
+            onClose={() => setJamOpen(false)}
+            phase={jam.phase}
+            jamState={jam.jamState}
+            joinError={jam.joinError}
+            actions={jam.actions}
+            currentTrackTitle={song?.title}
+            libraryTracks={allSongs
+              .map((s, index) => ({ index, s }))
+              .filter(({ s }) => !!s.playback?.r2TrackId)
+              .map(({ index, s }) => ({
+                index,
+                trackId: s.playback.r2TrackId!,
+                title: s.title,
+                artist: s.artist,
+              }))}
+          />
+        )}
+      </AnimatePresence>
+
       <audio ref={audioRef} src="/silence.wav" loop playsInline muted={false} style={{ display: 'none' }} />
     </main>
   );
