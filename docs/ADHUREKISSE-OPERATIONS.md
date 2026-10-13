@@ -1,6 +1,6 @@
 # Adhure Kisse operations runbook
 
-Reviewed **2026-10-03**. Application root: **`sites/adhurekisse`**. [Architecture/decision timeline](ADHUREKISSE-ARCHITECTURE.md) · [security/threat model](ADHUREKISSE-SECURITY.md) · [Android matrix](ANDROID-TEST-MATRIX.md).
+Registration update **2026-10-14** (original operations review 2026-10-03). Application root: **`sites/adhurekisse`**. [Architecture/decision timeline](ADHUREKISSE-ARCHITECTURE.md) · [security/threat model](ADHUREKISSE-SECURITY.md) · [Android matrix](ANDROID-TEST-MATRIX.md).
 
 All provider setup, migration and hosted acceptance steps below are **operator procedures, not completed cloud work**. Commands use an isolated test stack first. Do not load, print or copy this checkout's `.env.local`, live keys, user music or existing browser sessions into tests.
 
@@ -38,10 +38,10 @@ Next loads `.env*` automatically, including `.env.local` during a production bui
 
 ### Auth settings, before opening the app
 
-- Disable public signups and anonymous sign-ins. Keep email confirmation enabled. Do not temporarily allow signup to bootstrap an owner.
+- Apply migration 0004 before deploying the registration UI or enabling **Allow new users to sign up**. Enable the email/password provider and public signup only after the migration succeeds. Keep anonymous sign-ins disabled and email confirmation enabled. New confirmed users may listen solo and use the code-based Jam flow; no invitation or Jam code is required for registration.
 - Configure Site URL for the verified app origin and explicit redirect destinations ending in `/login`. Add exact test/localhost destinations only to the isolated test project. Supabase invitation/magic-link redirects must **not** target Spotify `/callback`.
-- For six-digit code login, include **`{{ .Token }}`** in the Magic Link/OTP template. Supabase otherwise sends a magic link by default. Client OTP requests use `shouldCreateUser:false`; app activation calls `accept_invitation()` after provider session verification.
-- Configure custom SMTP for real invited listeners. Supabase's default SMTP sends only to authorized project-team addresses, currently limits to **2 emails/hour**, and offers no delivery SLA. Database invitation existence is not evidence of mail delivery.
+- For six-digit code login, include **`{{ .Token }}`** in the Magic Link/OTP template. Supabase otherwise sends a magic link by default. Client OTP requests use `shouldCreateUser:false`; confirmed account activation calls `activate_account()` after provider session verification.
+- Configure custom SMTP for real listeners, including the Confirm Signup template's confirmation link and the Magic Link template. Supabase's default SMTP sends only to authorized project-team addresses, currently limits to **2 emails/hour**, and offers no delivery SLA. A signup response or database invitation is not evidence of mail delivery. Duplicate signup responses intentionally do not disclose account existence.
 - Keep JWT expiry reasonably short for the private audience and verify refresh/rejoin behavior. Realtime authorization can retain old channel access until a new JWT or expiration; do not confuse access-token lifetime with refresh-session lifetime.
 
 ### Migration order and operator provisioning
@@ -51,8 +51,9 @@ Take an encrypted, restorable database backup and record the existing migration 
 1. `supabase/migrations/0001_init.sql`
 2. `supabase/migrations/0002_chat_messages.sql`
 3. `supabase/migrations/0003_private_library_hardening.sql`
+4. `supabase/migrations/0004_public_registration.sql`
 
-For an existing target that already has 0001/0002, apply **only 0003**. These files are forward migrations, not an idempotent “run every file again” recipe. 0003 runs in one transaction and creates new columns/policies/functions; inspect a failed transaction before retry. Do not edit historical migrations or manually recreate the old first-user bootstrap.
+For an existing target that already has 0001/0002/0003, apply **only 0004**. These files are forward migrations, not an idempotent “run every file again” recipe. 0003 and 0004 run in one transaction; inspect a failed transaction before retry. Do not edit historical migrations or manually recreate the old first-user bootstrap.
 
 Example for a **fresh isolated test database**, from the site root with a test connection injected into the shell:
 
@@ -63,6 +64,7 @@ test -n "$TEST_DATABASE_URL"
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0001_init.sql
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0002_chat_messages.sql
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0003_private_library_hardening.sql
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/0004_public_registration.sql
 ```
 
 Replace a connection only after independently confirming the target project. Provider SQL Editor may instead run each complete file in this order. Verify `pgcrypto`/`citext` placement and provider-managed Auth/Realtime schemas on the actual target. PGlite fixtures do not prove the hosted schema/extension/ownership configuration.
@@ -71,6 +73,7 @@ Replace a connection only after independently confirming the target project. Pro
 
 ```sql
 begin;
+select pg_advisory_xact_lock(9182026,1);
 do $owner$
 declare
   owner_id uuid := '<VERIFIED_OWNER_AUTH_UUID>'::uuid;
@@ -91,7 +94,39 @@ where id = '<VERIFIED_OWNER_AUTH_UUID>'::uuid;
 commit;
 ```
 
-Replace both UUID placeholders with the independently verified same UUID; confirm exactly one intended active admin row. Never promote by email alone, creation order or “all legacy profiles.” An old admin bit remains ineffective while inactive. Re-invite verified ordinary legacy users; accepting an invitation clears inherited admin status and does not grant tracks. Pre-0001 ordinary Auth accounts missing a profile require trusted explicit profile provisioning, not automatic scanning/activation of all accounts.
+Replace both UUID placeholders with the independently verified same UUID; confirm exactly one intended active admin row. Never promote by email alone, creation order or “all legacy profiles.” An old admin bit remains ineffective while inactive. Pre-0001 ordinary Auth accounts missing a profile require trusted explicit profile provisioning, not automatic scanning/activation of all accounts.
+
+### 0004 rollout and existing accounts
+
+- Active accounts and active administrators keep their access. New Auth accounts
+  get an inactive, non-admin profile explicitly eligible for one-time activation.
+  `activate_account()` requires a confirmed email and a non-anonymous, unbanned
+  Auth identity. Repeated calls preserve existing active roles.
+- Existing **inactive** profiles stay locked, including previously pending
+  invitations. This avoids silently restoring revoked users or activating an old
+  first-user admin bit. After verifying one ordinary account's UUID, opt it in
+  using trusted SQL (never run for all profiles):
+
+  ```sql
+  begin;
+  select pg_advisory_xact_lock(9182026,1);
+  update public.profiles
+    set activation_eligible=true, activation_provenance='operator_verified'
+    where id='<VERIFIED_LISTENER_AUTH_UUID>'::uuid and not is_active;
+  commit;
+  ```
+
+  Its next confirmed login activates it **without admin privileges**. A fresh
+  invitation alone does not unlock a disabled or legacy-locked account.
+- Any explicit `is_active=false` update clears activation eligibility, including
+  disabling a pending account. Revoking an accepted invitation still deactivates
+  the linked ordinary user; neither activation RPC can undo that. Operators must
+  take the same advisory lock before changing access by direct SQL.
+- Verify real signup mail, confirmation, password/OTP login, an existing owner,
+  a disabled user, and a signed-out `/?jam=CODE` link on the isolated provider
+  stack. Then deploy this site's code and repeat the approved live smoke checks.
+  No hosted migration, Auth toggle, mail delivery or deployment is claimed by the
+  local test results below.
 
 ### Realtime and schema acceptance
 
@@ -140,7 +175,7 @@ Verify in a real browser: allowed-origin preflight succeeds; unrelated origin is
 
 - Admin upload: edit metadata before start; audio ≤200 MiB, artwork JPEG/PNG/WebP/AVIF ≤10 MiB; verified ready audio cannot be replaced. A cancelled/failed browser job retains its pending row. Retry uses a new intent or retries finalize after bytes landed; dismissing a queue item is not a storage deletion.
 - Finalize checks server-held intent/expiry, HEAD size/MIME/MD5 and ETag-bound ≤4 KiB magic bytes before publication. Duration supplied by browser is not full decode validation. Duplicate ready checksummed **content** is rejected even under another title; legacy null-checksum tracks are not backfilled.
-- Invitation POST reports `delivery:sent|existing_account|pending`. `pending` requires mail/Auth provisioning investigation; it does not mean email sent. Activation requires confirmed matching email plus valid invitation/active issuer. The DB/mail operation cannot be atomic across services.
+- Invitation POST reports `delivery:sent|existing_account|pending`. `pending` requires mail/Auth provisioning investigation; it does not mean email sent. Eligible new registrations activate after confirmation without an invitation; a pending valid invitation may be linked during activation as an audit/revocation record. Already active accounts are not retroactively linked. Neither registration nor invitations grant tracks. The DB/mail operation cannot be atomic across services.
 - Grant exact tracks after activation. Playlist sharing alone only shares its metadata/authorized entries; admin-owner `grantTracks:true` supplies derived rights. Track revoke installs a deny even if a playlist would otherwise grant; explicit regrant clears it. Unshare removes that playlist's derived rights, not independent grants.
 - Revoking an accepted invitation deactivates the ordinary account bound to that invitation. It does not delete an Auth account or already downloaded media. Operator admins are deactivated through the trusted UUID path.
 - Track DELETE removes DB metadata/grants transactionally and queues R2 deletion. Invoke **`POST /api/storage/cleanup`** with a verified active admin bearer session periodically; it processes ≤100 eligible keys, keeps failures queued and excludes referenced/live-intent objects. Normal delayed deletion is ≥20 minutes; expired intents have a five-minute grace beyond PUT expiry. Repeat until eligible backlog drains.
@@ -163,9 +198,13 @@ npm exec -- playwright install --with-deps chromium
 QA_STAGE_PARENT=/tmp QA_OUTPUT_DIR=/tmp/adhurekisse-local-results QA_REPORT=/tmp/adhurekisse-local-report.json npm run test:e2e:local
 ```
 
-The CI workflow runs audit independently and a non-fail-fast typecheck/lint/test/build matrix on Ubuntu 24.04/Node 22. Tests include server Vitest and offline actual AWS signing. A separate PGlite 0.5.8 job applies all three migrations with minimal Auth/Realtime fixtures; this is real SQL/RLS coverage, not the hosted Auth/mail/Realtime service. Linux `npm ci` avoids the current Windows-mounted install's missing native Rollup/esbuild/SWC binaries. The new QA harness is `tests/playback/playwright.config.ts` / `serve-next.mjs`; CI sets `QA_STAGE_PARENT`, `QA_OUTPUT_DIR` and `QA_REPORT` under `runner.temp`, since the harness's `/tmp/omnirush` defaults do not exist on GitHub runners. It stages allowlisted current app source without copying env files. Mock Realtime/API traffic and synthesized Range-served WAV verify app integration, not provider configuration.
+The CI workflow runs audit independently and a non-fail-fast typecheck/lint/test/build matrix on Ubuntu 24.04/Node 22. Tests include server Vitest and offline actual AWS signing. A separate PGlite 0.5.8 job applies all four migrations with minimal Auth/Realtime fixtures; this is real SQL/RLS coverage, not the hosted Auth/mail/Realtime service. Install dependencies on the OS running the checks rather than reusing native binaries from another platform. The QA harness is `tests/playback/playwright.config.ts` / `serve-next.mjs`; CI sets `QA_STAGE_PARENT`, `QA_OUTPUT_DIR` and `QA_REPORT` under `runner.temp`, since the harness's `/tmp/omnirush` defaults do not exist on GitHub runners. It stages allowlisted current app source without copying env files. Mock Realtime/API traffic and synthesized Range-served WAV verify app integration, not provider configuration.
 
-**QA integration contract:** `test:e2e:local` starts/manages a loopback app/test harness with deterministic fake provider endpoints, generated lawful media, no live credentials and substantive browser assertions. The current local run passes 27 substantive browser tests; the three axe audit cases are intentionally skipped unless `QA_AXE_SOURCE` points to an installed axe script. Browser artifacts with tokens/signed URLs are not automatically uploaded.
+**QA integration contract:** `test:e2e:local` starts/manages a loopback app/test harness with deterministic fake provider endpoints, generated lawful media, no live credentials and substantive browser assertions. The 2026-10-14 Windows Chromium verification covers **50 passing scenarios**, including four axe audits and registration at 320px/390px. The expanded full run passed 49; one redirect assertion hit its 15-second limit while Next compiled the destination. It now uses a bounded navigation-specific 60-second limit; all four affected destination tests passed on recheck. It used an isolated Next server with `QA_NEXT_TURBO=1` (avoids Windows directory-symlink permissions), temp stage/output/report paths, fake services and real WAV fixtures. Browser artifacts with tokens/signed URLs are not automatically uploaded.
+
+The additional component suite (`npm exec -- playwright test --config tests/frontend/playwright.config.ts`) passed **20/20**, on desktop and mobile. An initial cold Vite navigation timed out; the complete rerun passed without changing app behavior or test assertions. Its cache/output paths now use the OS temp directory rather than a hard-coded POSIX path.
+
+The same registration change passed typecheck (`npm run typecheck -- --incremental false`), lint (`ESLINT_USE_FLAT_CONFIG=false` plus `node node_modules/eslint/bin/eslint.js .` on PowerShell), **85 unit**, **40 server**, **1 AWS presign**, **28 PGlite tests** (27 subtests plus parent), and `npm run build` in the isolated no-live-env staged app. SQL tests include upgrade/legacy safety, email confirmation, public signup without an invitation, no admin escalation, and denied reactivation after revocation/disable.
 
 The package-script mapping is `"test:e2e:local": "playwright test --config tests/playback/playwright.config.ts"`; it is wired and has been run locally against the isolated Next harness.
 

@@ -8,9 +8,11 @@ vi.mock("../../lib/supabase", () => ({ supabase: {
 import { authedFetch, getProfile } from "../../lib/auth";
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   vi.stubGlobal("fetch", mocks.fetch);
   mocks.session.mockResolvedValue({ data: { session: { access_token: "old-token", expires_at: Date.now() / 1000, user: { id: "forged-admin-id" } } } });
+  mocks.user.mockResolvedValue({ data: { user: { id: "verified-user" } }, error: null });
+  mocks.rpc.mockResolvedValue({ data: true, error: null });
 });
 
 it("uses verified identity rather than a forged local session user for profile lookup", async () => {
@@ -19,6 +21,36 @@ it("uses verified identity rather than a forged local session user for profile l
   mocks.eq.mockReturnValue({ single: async () => ({ data: { id: "verified-user", is_active: true, is_admin: false } }) });
   expect(await getProfile()).toMatchObject({ id: "verified-user", is_admin: false });
   expect(mocks.eq).toHaveBeenCalledWith("id", "verified-user");
+  expect(mocks.rpc).toHaveBeenCalledWith("activate_account");
+  expect(mocks.user).toHaveBeenCalledWith("old-token");
+});
+
+it.each([
+  { data: false, error: null }, { data: null, error: null },
+  { data: "true", error: null }, { data: true, error: { message: "denied" } },
+])("denied account activation cannot fall back to a cached or forged profile: %j", async (result) => {
+  mocks.rpc.mockResolvedValue(result);
+  mocks.eq.mockReturnValue({ single: async () => ({ data: { id: "verified-user", is_active: true, is_admin: true } }) });
+  expect(await getProfile()).toBeNull();
+  expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("activate_account");
+  expect(mocks.eq).not.toHaveBeenCalled();
+});
+
+it.each([null, { id: "verified-user", is_active: false, is_admin: true }])("requires an active profile after successful activation: %j", async (profile) => {
+  mocks.eq.mockReturnValue({ single: async () => ({ data: profile }) });
+  expect(await getProfile()).toBeNull();
+});
+
+it("does not activate or query profiles for an invalid provider identity", async () => {
+  mocks.user.mockResolvedValue({ data: { user: null }, error: { message: "invalid token" } });
+  expect(await getProfile()).toBeNull();
+  expect(mocks.rpc).not.toHaveBeenCalled();
+  expect(mocks.eq).not.toHaveBeenCalled();
+});
+
+it("preserves the administrator role from the active database profile", async () => {
+  mocks.eq.mockReturnValue({ single: async () => ({ data: { id: "verified-user", is_active: true, is_admin: true } }) });
+  expect(await getProfile()).toMatchObject({ id: "verified-user", is_admin: true });
 });
 
 it("never attaches a token to foreign URLs or follows API redirects", async () => {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { filterTracks, formatDuration, safeReturnPath, trackToSong } from "../../components/private-library/helpers";
+import { filterTracks, formatDuration, jamCodeFromPath, safeReturnPath, trackToSong } from "../../components/private-library/helpers";
 import { audioMime, probeDuration, runUpload, validateArtwork, validateAudio, type UploadJob } from "../../components/private-library/uploads";
 import type { TrackRow } from "../../lib/auth";
 
@@ -62,10 +62,21 @@ describe("private library media and metadata", () => {
     expect(formatDuration(null)).toBe("—");
   });
   it("allows only known internal post-login destinations", () => {
-    for (const unsafe of ["//evil.example", "https://evil.example", "/\\evil.example", "/admin?token=secret", null]) expect(safeReturnPath(unsafe)).toBe("/library");
+    for (const unsafe of ["//evil.example", "https://evil.example", "/\\evil.example", "/admin?token=secret", null, ""]) expect(safeReturnPath(unsafe)).toBe("/");
     expect(safeReturnPath("/admin")).toBe("/admin");
+    expect(safeReturnPath("/library")).toBe("/library");
+    expect(safeReturnPath("/")).toBe("/");
     expect(safeReturnPath("/library?playlist=00000000-0000-4000-8000-000000000001")).toBe("/library?playlist=00000000-0000-4000-8000-000000000001");
-    expect(safeReturnPath("/library?playlist=00000000-0000-4000-8000-000000000001&redirect=//evil.example")).toBe("/library");
+    expect(safeReturnPath("/library?playlist=00000000-0000-4000-8000-000000000001&redirect=//evil.example")).toBe("/");
+    expect(safeReturnPath("/?jam=ABC123")).toBe("/?jam=ABC123");
+    expect(safeReturnPath("/?jam=abc123")).toBe("/?jam=abc123");
+    expect(jamCodeFromPath("/?jam=abc123")).toBe("ABC123");
+  });
+  it("rejects malformed Jam links rather than passing redirects or joining ambiguous codes", () => {
+    for (const path of ["/?jam=too-long", "/?jam=ABC123&next=//evil.example", "/?jam=ABC123&jam=DEF456", "/?jam=%41BC123", "/?jam=ABC123#fragment", "/?jam=ABC123\n", "/?jam=ABC123/", "//evil.example/?jam=ABC123", "/\\evil.example/?jam=ABC123", "https://evil.example/?jam=ABC123", "/?jam=ABC12%0a", "/?JAM=ABC123"]) {
+      expect(safeReturnPath(path), path).toBe("/");
+      expect(jamCodeFromPath(path), path).toBeNull();
+    }
   });
 });
 

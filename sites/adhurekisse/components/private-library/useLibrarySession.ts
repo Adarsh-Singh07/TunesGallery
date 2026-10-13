@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Profile } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
-import { errorMessage } from "./api";
+import { activationNotice, loginError } from "./authErrors";
 
 export function useLibrarySession() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -24,19 +24,19 @@ export function useLibrarySession() {
         if (sessionError) throw sessionError;
         if (!alive || request !== generation) return;
         if (!data.session) { setProfile(null); setStatus("guest"); return; }
-        const accepted = await client!.rpc("accept_invitation");
-        if (accepted.error) throw accepted.error;
-        if (accepted.data !== true) throw new Error("Your invitation is missing, expired, or revoked. Ask the owner to renew your access.");
+        const active = await client!.rpc("activate_account");
+        if (active.error) throw active.error;
+        if (active.data !== true) throw new Error(activationNotice);
         const { data: row, error: profileError } = await client!.from("profiles")
           .select("id,email,display_name,is_admin,is_active").eq("id", data.session.user.id).maybeSingle();
         if (profileError) throw profileError;
         if (!alive || request !== generation) return;
-        if (!row?.is_active) throw new Error("Your account is not set up yet. Ask the owner to complete your invitation.");
+        if (!row?.is_active) throw new Error(activationNotice);
         setProfile(row as Profile);
         setError("");
         setStatus("ready");
       } catch (err) {
-        if (alive && request === generation) { setError(errorMessage(err)); setStatus("error"); }
+        if (alive && request === generation) { setProfile(null); setError(loginError(err, "activate")); setStatus("error"); }
       }
     }
     setStatus("loading");

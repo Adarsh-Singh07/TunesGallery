@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
+import { tmpdir } from "node:os";
 
 // Isolated component browser suite: real owned UI, test-only player/navigation,
 // fake public Auth settings, and all cloud/API requests mocked. Uses existing Vite.
@@ -10,7 +11,7 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   workers: 1,
   reporter: "list",
-  outputDir: "/tmp/omnirush/adhurekisse-ui-results",
+  outputDir: join(tmpdir(), "omnirush", "adhurekisse-ui-results"),
   use: { baseURL: "http://127.0.0.1:3107", trace: "retain-on-failure" },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },

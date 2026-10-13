@@ -39,6 +39,15 @@ All entries below are from **2026-10-03**, in review/implementation order; they 
 
 ## Components and trust boundaries
 
+**2026-10-14 registration decision:** forward migration **0004** replaces the
+invitation-required onboarding described in the original audit with public
+email/password signup. New confirmed accounts activate once; disabled and
+ambiguous legacy inactive accounts cannot self-reactivate. Active roles survive
+the upgrade and new activations never inherit admin privileges. The default
+post-login destination is solo `/`; Jam is optional via create/copy/join code or
+a strictly validated invite link retained through registration/confirmation.
+Private track permissions and the existing two-listener limit are unchanged.
+
 ```mermaid
 flowchart LR
   B[Browser / installed PWA] -->|email OTP / verified session| A[Supabase Auth]
@@ -54,7 +63,7 @@ flowchart LR
 ```
 
 - **Next.js App Router** serves the shell, `/login`, `/library`, `/admin`, REST metadata/auth checks and storage capabilities. Public archive/provider behavior is separate from private access: missing Supabase configuration does not authorize private APIs.
-- **Supabase Auth** proves identity. `getUser(token)` verifies server callers; profile activation binds a confirmed `auth.users.email` to an unexpired, non-revoked invitation issued by an active admin. Invitation codes are administrative references, not email-proof substitutes.
+- **Supabase Auth** proves identity. `getUser(token)` verifies server callers; `activate_account()` checks trusted confirmed email, anonymous/ban state and server-held pending activation eligibility. An invitation is optional and grants no tracks. Jam codes join rooms, not accounts, and are not email-proof substitutes.
 - **Postgres** is the metadata and control authority. R2 listings, client identities, Presence and room codes are not authorities. All write paths recheck active profile, role/membership and relevant track rights.
 - **Service-role client** bypasses RLS and stays server-only. Its use is limited to checked Auth invitations, library publication and GC; ordinary reads retain caller-bound RLS.
 - **R2** remains private, including artwork. Presigns use the S3 API host, not an R2 public/custom-domain URL. The browser receives a bearer capability, never storage credentials or the app bearer token as an R2 header.
@@ -64,7 +73,7 @@ flowchart LR
 
 | Domain | Authoritative records / rules |
 |---|---|
-| Identity | `profiles.is_active`, `is_admin`, `invitation_id`; confirmed Auth email; invitation issuer/expiry/revocation/acceptance |
+| Identity | `profiles.is_active`, `is_admin`, `activation_eligible`, `activation_provenance`, optional `invitation_id`; confirmed Auth email; disable consumes eligibility; legacy locked by default |
 | Library | `tracks`, `track_permissions`, `track_revocations`; explicit deny wins over ordinary owner/explicit/playlist-derived access; active admin retains administrative access |
 | Playlists | `playlists.revision`, ordered `playlist_tracks`, `playlist_permissions`; owner edits; only admin owner can share with `grantTracks:true`; a link grants nothing |
 | Uploads | Server-only `upload_intents`; pending → verified ready; live artwork unchanged until successful conditional replacement |

@@ -6,6 +6,9 @@
 > one-hour/Jam-derived stream access, HEAD-only finalize and token-rotation
 > assumptions are superseded by forward 0003, inactive legacy profiles,
 > verified UUID provisioning and the current private-storage contract.
+> **Registration update (2026-10-14):** Adhure Kisse additionally requires forward
+> migration **0004** before enabling public signup. Follow the site operations
+> runbook, not the legacy invitation/owner-provisioning instructions below.
 
 Applies to **both** `sites/adhurekisse` and `sites/onlyforyou` — they share the
 same private-library + Jam architecture. Each site can point at its **own**

@@ -13,7 +13,7 @@ async function mockEnvironment(page: Page, options: { tracks?: typeof track[]; a
   }, { user });
   await page.route("http://127.0.0.1:59999/**", async (route) => {
     const url = new URL(route.request().url());
-    const body = url.pathname.includes("/rpc/accept_invitation") ? true : url.pathname.includes("/profiles") ? (url.searchParams.has("id") ? user : [user, { id: listenerId, display_name: "Listener", email: "listener@example.test", is_admin: false, is_active: true }]) : {};
+    const body = (url.pathname.includes("/rpc/activate_account") || url.pathname.includes("/rpc/accept_invitation")) ? true : url.pathname.includes("/profiles") ? (url.searchParams.has("id") ? user : [user, { id: listenerId, display_name: "Listener", email: "listener@example.test", is_admin: false, is_active: true }]) : {};
     await route.fulfill({ json: body });
   });
   await page.route("**/api/**", async (route) => {
@@ -127,6 +127,24 @@ test("login reports rate-limited sign-in errors", async ({ page }) => {
   await page.getByLabel("Your email").fill("listener@example.test");
   await page.getByRole("button", { name: "Send sign-in code" }).click();
   await expect(page.getByRole("alert")).toContainText("Wait a minute");
+});
+
+test("every listener can register before entering solo listening", async ({ page }) => {
+  await mockEnvironment(page, { signedIn: false });
+  await page.route("**/auth/v1/signup**", async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({ email: "new-listener@example.test", password: "correct horse battery staple" });
+    await route.fulfill({ json: { user: { id: listenerId, email: "new-listener@example.test" }, session: null } });
+  });
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Create account options", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Create account options" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByLabel("Your name").fill("New Listener");
+  await page.getByLabel("Your email").fill("new-listener@example.test");
+  await page.getByLabel("Password", { exact: true }).fill("correct horse battery staple");
+  await page.getByLabel("Confirm password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Confirm your email" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("If this email can be registered");
 });
 
 test("library rendering and refreshing never overwrite the shared playback queue", async ({ page }) => {

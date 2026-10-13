@@ -6,9 +6,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { safeReturnPath } from "./private-library/helpers";
 
 export default function AuthGate({ siteName }: { siteName: string }) {
+  const [destination, setDestination] = useState("/");
+  useEffect(() => { setDestination(safeReturnPath(`${window.location.pathname}${window.location.search}${window.location.hash}`)); }, []);
+  const loginHref = `/login?next=${encodeURIComponent(destination)}`;
+
   return (
     <motion.div
       className="entry-gate"
@@ -29,12 +35,13 @@ export default function AuthGate({ siteName }: { siteName: string }) {
       >
         <p className="entry-eyebrow">A PRIVATE MUSIC ROOM</p>
         <h1 className="entry-title" lang="hi">{siteName}</h1>
-        <p className="entry-tagline">This room is invite-only.</p>
-        <Link href="/login" className="entry-btn" style={{ textDecoration: "none" }} role="button">
+        <p className="entry-tagline">Listen solo, then invite someone to a private Jam.</p>
+        <Link href={loginHref} className="entry-btn" style={{ textDecoration: "none" }} role="button">
           <span className="entry-btn-dot" aria-hidden="true" />
           SIGN IN
         </Link>
-        <p className="entry-hint">Check your invitation email for details</p>
+        <Link href={`${loginHref}&mode=register`} className="entry-btn" style={{ textDecoration: "none", marginTop: 12 }} role="button">REGISTER</Link>
+        <p className="entry-hint">Create an account to listen. Jam rooms use a six-character code.</p>
       </motion.div>
     </motion.div>
   );

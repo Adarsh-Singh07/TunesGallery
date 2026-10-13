@@ -6,6 +6,9 @@
 > title-based deduplication, immediate object deletion, guaranteed background
 > playback and automatic host-disconnect pause claims below are superseded by
 > the audited upload/GC/Jam contracts and unverified device acceptance.
+> **Registration update (2026-10-14):** The register/sign-in and code-based Jam
+> instructions below describe **Adhure Kisse with migration 0004**. OnlyForYou
+> remains unchanged and still requires its existing invitation provisioning.
 
 This is the practical walkthrough for the person who owns the library.
 
@@ -17,12 +20,15 @@ Follow `docs/DEPLOYMENT.md` once: create the Supabase project + R2 bucket,
 run the migration, add the env vars to Vercel. After that, everything below
 happens in the app itself.
 
-## Sign in
+## Register or sign in
 
-1. Open your site and press **SIGN IN** (or go to `/login`).
-2. Enter your email → you receive a 6-digit code → enter it → you're in.
-3. Your account is the **owner** (`is_admin`), so you see the **ADMIN**
-   button in the top bar.
+1. Open Adhure Kisse and press **REGISTER** or **SIGN IN** (or go to `/login`).
+2. New listeners choose **Create account**, enter a name, email and password,
+   then confirm the email. They can listen to the curated archive alone as soon
+   as they sign in.
+3. Existing listeners can use a password or a 6-digit email code.
+4. The verified owner account must be promoted to **owner** (`is_admin`) by the
+   operator, after which the **ADMIN** button appears in the top bar.
 
 ## Upload your music (ADMIN → Uploads)
 
@@ -46,24 +52,28 @@ lock-screen controls, and reliable background playback.
 
 ## Let a friend in (ADMIN → Access)
 
-1. Create an **invitation** for their email.
-2. Create an auth account for that email in the Supabase dashboard
-   (Authentication → Users → Add user) — signup is closed, so you provision
-   accounts.
-3. By default they can sign in but hear **nothing private**. Grant them
+1. They register at `/login`, or you create an optional **invitation** for a
+   direct sign-in link.
+2. By default they can listen to the curated archive but hear **nothing
+   private**. Grant them
    specific tracks with the *Grant track access* form.
-4. They never need a password: they sign in at `/login` with an email code.
+3. They can use a password or an email code at `/login`.
 
 ## Jam with one friend
 
-1. Both of you sign in. You press **JAM** → *Create a private room*
+1. Both of you register/sign in. You press **JAM** → *Create a private room code*
    (optionally "allow my guest to control playback").
-2. Send them the **invite link** shown in the room panel
-   (`…/?jam=CODE`). Opening it signs them in and joins the room automatically.
+2. Send them the **invite link** or six-character code shown in the room panel
+   (`…/?jam=CODE`). They sign in, then choose **JAM** → **Join** and enter the code.
+   Alternatively, opening the link preserves the code through registration and
+   sign-in and automatically joins after they enter the music room.
 3. Add tracks to the **shared queue** from the picker in the panel and press
    **PLAY**. Both phones buffer first, then start together against one shared
    timeline — drift is corrected automatically (gently below 250 ms, by seek
    above it).
+   Shared playback currently uses private audio that both accounts have already
+   been granted. A room code does not grant private tracks; the curated archive
+   remains available for solo listening.
 4. While jammed: pause/seek/skip are shared; volume stays per-device; the
    **sleep timer** stops only *your* phone at the end; chat and emoji
    reactions ride alongside without touching sync.

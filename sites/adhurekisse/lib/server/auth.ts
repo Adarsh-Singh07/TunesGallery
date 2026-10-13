@@ -50,8 +50,7 @@ export interface AuthContext {
 
 /**
  * Authenticate the request and load the caller's profile.
- * Returns null when the token is missing/invalid or the user has no profile
- * (i.e. was never invited).
+ * Returns null when identity validation or confirmed-account activation fails.
  */
 export async function requireUser(req: Request): Promise<AuthContext | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
@@ -61,22 +60,24 @@ export async function requireUser(req: Request): Promise<AuthContext | null> {
 
   const db = userClient(token);
   const { data: userData, error } = await db.auth.getUser(token);
-  if (error || !userData.user) return null;
+  if (error || !userData.user || userData.user.is_anonymous) return null;
 
   let { data: profile } = await db
     .from("profiles")
     .select("id, email, is_admin, is_active")
     .eq("id", userData.user.id)
     .single();
-  if (!profile) {
-    // The RPC verifies auth.users' confirmed email, an unexpired invitation,
-    // and its active administrator issuer. It cannot promote administrators.
-    const { data: accepted, error: acceptanceError } = await db.rpc("accept_invitation");
+  if (!profile?.is_active) {
+    // Inactive profiles are normally hidden by RLS. Only the RPC may decide
+    // whether this is an eligible registration or a disabled/legacy account;
+    // a missing visible row is never itself permission to activate.
+    const { data: accepted, error: acceptanceError } = await db.rpc("activate_account");
     if (acceptanceError || accepted !== true) return null;
     const result = await db.from("profiles").select("id, email, is_admin, is_active").eq("id", userData.user.id).single();
+    if (result.error) return null;
     profile = result.data;
   }
-  if (!profile?.is_active) return null;
+  if (!profile?.is_active || profile.id !== userData.user.id) return null;
 
   return {
     userId: profile.id,

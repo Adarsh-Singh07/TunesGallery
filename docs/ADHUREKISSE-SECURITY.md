@@ -1,12 +1,12 @@
 # Adhure Kisse security model
 
-Reviewed **2026-10-03**; applies to **`sites/adhurekisse`** and its 0003 forward-hardening contract. See [architecture](ADHUREKISSE-ARCHITECTURE.md), [setup/incident operations](ADHUREKISSE-OPERATIONS.md) and [unverified device acceptance](ANDROID-TEST-MATRIX.md). This is a source/configuration review, not a hosted penetration-test or cloud-setup claim.
+Registration update **2026-10-14**; applies to **`sites/adhurekisse`**, 0003 hardening and 0004 public registration. See [architecture](ADHUREKISSE-ARCHITECTURE.md), [setup/incident operations](ADHUREKISSE-OPERATIONS.md) and [unverified device acceptance](ANDROID-TEST-MATRIX.md). This is a source/configuration review, not a hosted penetration-test or cloud-setup claim.
 
 ## Assets, principals and boundaries
 
 Protect private audio/artwork, listener emails, grants and invitations, authenticated chat, room metadata/timeline/queue, JWT/refresh tokens, R2 capabilities, server credentials and CI supply chain.
 
-Principals: signed-out visitor; active invited listener; inactive/revoked account; verified active administrator; host; guest; non-member; trusted SQL/service operator. Admin/library ownership and Jam hosting are different privileges: a host need not be admin. Provider/project operators and a compromised service-role/R2 credential are inside the privileged trust boundary.
+Principals: signed-out visitor; new pending registration; active confirmed listener; inactive/revoked account; verified active administrator; host; guest; non-member; trusted SQL/service operator. Admin/library ownership and Jam hosting are different privileges: a host need not be admin. Provider/project operators and a compromised service-role/R2 credential are inside the privileged trust boundary.
 
 Untrusted inputs include filenames/metadata/media bytes, UUIDs/room codes, JSON, JWT strings before verification, client readiness/clock reports, reconnect callbacks, Presence/Broadcast identity, deep links and PR code. Browser UI hiding is not authorization. Network TLS protects transport, not a recipient redistributing downloaded audio.
 
@@ -15,7 +15,7 @@ Untrusted inputs include filenames/metadata/media bytes, UUIDs/room codes, JSON,
 | Threat / abuse case | Implemented boundary | Remaining exposure / required acceptance |
 |---|---|---|
 | First account or stale legacy admin takes over | 0003 inactive default; trigger never auto-promotes; explicit verified UUID operator provisioning; invitation clears old admin bit | Apply migrations before opening Auth/app; verify owner affected-row result. Legacy profiles stay inactive until deliberate action |
-| Forged JWT/session/profile or uninvited confirmed user | API `getUser`; active-profile check; confirmed Auth-email invitation acceptance; signup/anonymous Auth disabled by operator | Hosted Auth settings and email proof still require acceptance; local user metadata is not authorization |
+| Forged JWT/session/profile or disabled account reactivates | API `getUser`; active-profile check; 0004 one-time eligibility for new confirmed registrations; disable trigger clears eligibility; legacy inactive users stay locked | Public signup is intentional, anonymous Auth stays disabled. Hosted Auth settings/email proof need acceptance; metadata is not authorization. New-account abuse still depends on provider rate limits |
 | IDOR / guessing tracks, playlists, rooms or another listener's data | Caller-bound RLS reads, least-privilege grants, checked RPCs; members-only room reads; explicit track deny wins for ordinary users | Real hosted allow/deny tests needed, including direct PostgREST/RPC, not only UI |
 | Invitation or Jam link redistributes music rights | Activation grants no tracks; Jam validates both listeners independently; only admin playlist owner may grant tracks | Existing GET capabilities/buffered copies remain usable within their authorization/cache window |
 | Stolen R2 URL, referrer, log or analytics leak | Five-minute GET; 15-minute write-once PUT; no-store API/object response settings; no-referrer API responses; direct upload has no app JWT | Capability is bearer access in any HTTP client; CORS is not authentication or immediate revocation. Audit page-level referrers/telemetry and redact network captures |
@@ -34,7 +34,7 @@ Untrusted inputs include filenames/metadata/media bytes, UUIDs/room codes, JSON,
 ## Authorization invariants
 
 1. **No automatic administrator.** Legacy `is_admin` is ineffective with `is_active=false`; no promotion by email, account order, invitation code, user metadata, or first login.
-2. **Active profile is required** for private API reads/writes and Jam RPCs. Invitation acceptance checks provider-held confirmed email and active issuer. Revoking an accepted invitation deactivates its associated ordinary profile; explicit operator admins use the trusted operator path.
+2. **Active profile is required** for private API reads/writes and Jam RPCs. Public registration activation checks provider-held confirmed email, non-anonymous/unbanned identity and server-held eligibility/provenance. No invitation is required for new accounts. Optional invitations must have a valid active issuer. Revoking an accepted invitation deactivates its associated ordinary profile and clears eligibility; both `activate_account` and the compatibility alias `accept_invitation` deny self-reactivation. Existing inactive profiles require deliberate operator verification; active admins retain their role.
 3. **Independent track rights** for every listener. Owner/explicit/admin-owned-playlist-derived grants may authorize ordinary users unless an explicit track deny exists; admin rights remain administrative. `/stream` additionally requires ready status. Room/playlist UUID knowledge never authorizes bytes.
 4. **Role and ownership checks live in SQL/API.** Ordinary playlist owners cannot redistribute track rights. Queue writes stay in checked command RPCs. A non-member cannot leave or mutate another room.
 5. **Service-role is never the normal read client.** Server-only mutations have an already verified actor and a second transactional admin check. Client roles have no direct upload-intent/private-counter/receipt/GC writes.
@@ -81,7 +81,7 @@ Completed locally on 2026-10-03:
 - Generated fixture PCM headers/durations/sizes and PNG chunk integrity passed in a temporary directory; generated media was removed. Guarded hosted recipe rejects missing TEST environment and the known live URL before network work; no hosted seed/acceptance was run.
 - Exact owner-provisioning SQL ran against an isolated PGlite database: explicit confirmed UUID activation/missing-profile creation, inactive unrelated legacy profile preservation and missing-account rejection passed. This is SQL recipe validation, not hosted migration acceptance.
 
-Verified locally on the current branch: `npm ci`, typecheck, lint, 81 unit tests, 20 server tests, AWS presign tests, 19 PGlite migration/RLS tests, production build and 27 substantive local browser acceptance tests. Three optional axe audit cases require `QA_AXE_SOURCE` and were skipped. No live-env build, hosted provider acceptance or physical-device run was performed.
+Registration verification (2026-10-14): `npm ci`, typecheck, lint, **85 unit**, **40 server**, **1 AWS presign**, **28 PGlite migration/RLS tests**, isolated production build, **50 local browser scenarios** (full run plus navigation recheck, including four axe audits), and **20 component browser tests**. See operations for exact run/recheck evidence and the required 0004 rollout/signup settings. No live-env build, hosted provider acceptance or physical-device run was performed.
 
 ## References
 

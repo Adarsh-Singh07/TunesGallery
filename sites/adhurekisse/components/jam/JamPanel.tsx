@@ -31,7 +31,7 @@ export default function JamPanel({
   const [joinCode, setJoinCode] = useState("");
   const [collaborative, setCollaborative] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"code" | "link" | null>(null);
   const [draft, setDraft] = useState("");
   const [pick, setPick] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export default function JamPanel({
   }, [state?.chat.length, open]);
   useEffect(() => {
     if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2_000);
+    const timer = setTimeout(() => setCopied(null), 2_000);
     return () => clearTimeout(timer);
   }, [copied]);
   useEffect(() => { setError(null); }, [state?.room?.id, phase]);
@@ -98,14 +98,14 @@ export default function JamPanel({
     catch (e) { setError(e instanceof Error ? e.message : "Something went wrong. Please try again."); }
     finally { running.current = false; setBusy(false); }
   }
-  async function copyInvite() {
+  async function copyInvite(kind: "code" | "link") {
     if (!room) return;
     try {
-      const url = new URL(window.location.pathname, window.location.origin);
+      const url = new URL("/", window.location.origin);
       url.searchParams.set("jam", room.code);
-      await navigator.clipboard.writeText(url.toString());
-      setCopied(true);
-    } catch { setError("Could not copy the link. Share the six-character room code instead."); }
+      await navigator.clipboard.writeText(kind === "code" ? room.code : url.toString());
+      setError(null); setCopied(kind);
+    } catch { setError("Could not copy. Select and share the six-character room code above instead."); }
   }
   function move(index: number, by: number) {
     const ids = queue.map((item) => item.id);
@@ -127,9 +127,14 @@ export default function JamPanel({
         {inRoom && room ? <>
           <section className={styles.invite} aria-label="Room invitation">
             <div><p className={styles.eyebrow}>YOUR ROOM · TWO LISTENERS</p><p className={styles.code}>{room.code}</p></div>
-            <button className={styles.pill} onClick={() => void copyInvite()} disabled={ended}>
-              {copied ? <Check size={15} /> : <Copy size={15} />}{copied ? "Copied" : "Invite link"}
-            </button>
+            <div className={styles.inviteActions}>
+              <button className={styles.pill} onClick={() => void copyInvite("code")} disabled={ended}>
+                {copied === "code" ? <Check size={15} /> : <Copy size={15} />}{copied === "code" ? "Code copied" : "Copy code"}
+              </button>
+              <button className={styles.pill} onClick={() => void copyInvite("link")} disabled={ended}>
+                {copied === "link" ? <Check size={15} /> : <Copy size={15} />}{copied === "link" ? "Link copied" : "Invite link"}
+              </button>
+            </div>
           </section>
 
           <div className={styles.connection} role="status">
@@ -248,12 +253,12 @@ export default function JamPanel({
           </footer>
         </> : <>
           <p className={styles.intro}>Two headphones. One shared moment.</p>
-          <p className={styles.hint}>Invite one person to listen with you. Each device streams its own audio, guided by the same room timeline.</p>
+          <p className={styles.hint}>Solo listening is ready whenever you are. To listen together, create a code for one guest or enter a code they shared with you.</p>
           {phase === "joining" ? <p role="status" className={styles.notice}>Opening your room and checking the connection…</p> : <>
-            <button className={`${styles.primary} ${styles.full}`} disabled={busy} onClick={() => void run(() => actions.createRoom(collaborative))}>Create a private room</button>
+            <button className={`${styles.primary} ${styles.full}`} disabled={busy} onClick={() => void run(() => actions.createRoom(collaborative))}>Create a private room code</button>
             <label className={styles.checkbox}><input type="checkbox" checked={collaborative} onChange={(e) => setCollaborative(e.target.checked)} />Allow my guest to control playback</label>
             <section className={styles.card}>
-              <p className={styles.eyebrow}>ALREADY HAVE AN INVITATION?</p>
+              <p className={styles.eyebrow}>ALREADY HAVE A ROOM CODE?</p>
               <form className={styles.form} onSubmit={(e) => { e.preventDefault(); if (joinCode.length === 6) void run(() => actions.joinRoom(joinCode)); }}>
                 <input className={styles.codeInput} value={joinCode} onChange={(e) => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
                   placeholder="ABC123" aria-label="Six-character room code" autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={6} />
@@ -261,7 +266,7 @@ export default function JamPanel({
               </form>
             </section>
           </>}
-          <p className={styles.hint}>A room invitation keeps your library private. Track permissions are checked for both listeners.</p>
+          <p className={styles.hint}>A code joins a room; it doesn’t grant private tracks. Shared playback uses private audio that both listeners can already access. Curated songs remain available for solo listening.</p>
         </>}
         {(error || joinError || state?.error) && <p role="alert" className={styles.error}>{error || joinError || state?.error}</p>}
       </motion.div>

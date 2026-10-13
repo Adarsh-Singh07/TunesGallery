@@ -13,11 +13,18 @@ Each website lives independently inside `sites/<site-name>/` and is deployed as 
 | [`sites/adhurekisse`](sites/adhurekisse/) | An immersive late-night Bollywood music room — private library, two-person Jam |
 | [`sites/onlyforyou`](sites/onlyforyou/) | A second private music room with the same private-library + Jam system |
 
-Both sites share the **private music platform**: invite-only Supabase auth,
+Both sites share the **private music platform**: Supabase auth,
 a per-user track library backed by Cloudflare R2 (browser→R2 uploads,
 short-lived signed streaming URLs), full Media Session lock-screen controls,
 and a synchronized two-person **Jam** room (shared timeline, drift
 correction, shared queue, chat & reactions, per-device sleep timer).
+
+**Adhure Kisse** now supports public email/password registration and confirmed
+accounts: listen solo, then create a six-character Jam code or join with one.
+Private tracks still require independent permissions for both listeners.
+Apply migration `0004_public_registration.sql` and enable email signup following
+[`docs/ADHUREKISSE-OPERATIONS.md`](docs/ADHUREKISSE-OPERATIONS.md).
+**OnlyForYou is unchanged** and retains its existing invitation setup.
 
 **Guides:** [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ·
 [`docs/ADMIN-GUIDE.md`](docs/ADMIN-GUIDE.md) (uploading songs, inviting

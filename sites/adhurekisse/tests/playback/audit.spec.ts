@@ -3,18 +3,19 @@ import { expect, test } from "@playwright/test";
 import { FakeStack } from "./fake-stack";
 import { enterMusicRoom, openJam } from "../e2e/helpers";
 
-for (const path of ["/login", "/library", "/"]) {
+for (const path of ["/login", "/login?mode=register", "/library", "/"]) {
   test(`measure console, navigation performance and axe accessibility for Next ${path}`, async ({ context, page }, testInfo) => {
     test.setTimeout(180_000);
     test.skip(!process.env.QA_AXE_SOURCE, "Set QA_AXE_SOURCE to an installed axe-core/axe.min.js to run the measured accessibility audit");
-    const stack = new FakeStack(); await stack.install(context, path === "/login" ? undefined : "host");
+    const stack = new FakeStack(); await stack.install(context, path.startsWith("/login") ? undefined : "host");
     const consoleErrors: string[] = []; const pageErrors: string[] = [];
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const axe = readFileSync(process.env.QA_AXE_SOURCE!, "utf8");
     if (path === "/") await enterMusicRoom(page); else {
       await page.goto(path);
-      await expect(path === "/login" ? page.getByLabel("Your email", { exact: true }) : page.getByRole("button", { name: "Play Evening tone", exact: true })).toBeVisible();
+      await expect(path.startsWith("/login") ? page.getByLabel("Your email", { exact: true }) : page.getByRole("button", { name: "Play Evening tone", exact: true })).toBeVisible();
+      if (path.includes("mode=register")) await expect(page.getByLabel("Confirm password")).toBeVisible();
     }
     await page.addScriptTag({ content: axe });
     const result = await page.evaluate(async () => {

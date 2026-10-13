@@ -32,7 +32,7 @@ export async function getProfile(): Promise<Profile | null> {
   // Browser storage is not proof of the displayed identity/role either.
   const { data: identity, error: identityError } = await supabase.auth.getUser(session.access_token);
   if (identityError || !identity.user) return null;
-  const { data: active, error } = await supabase.rpc("accept_invitation");
+  const { data: active, error } = await supabase.rpc("activate_account");
   if (error || active !== true) return null;
   const { data } = await supabase
     .from("profiles")

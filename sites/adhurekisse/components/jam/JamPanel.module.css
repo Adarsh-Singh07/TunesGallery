@@ -32,6 +32,7 @@
 .header { margin-bottom: 22px; }
 .eyebrow { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 10px; letter-spacing: .14em; line-height: 1.6; color: var(--ta, #c9a560); font-weight: 500; }
 .invite { padding: 16px; background: linear-gradient(130deg, #c9a56014, transparent); border: 1px solid var(--tb, #40372c); border-radius: 14px; flex-wrap: wrap; }
+.inviteActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .code { margin: 0; font: 27px monospace; letter-spacing: .24em; user-select: all; }
 .connection { display: flex; gap: 8px; align-items: center; margin: 16px 2px; font-size: 12px; line-height: 1.5; }
 .liveDot, .waitDot { display: inline-block; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; }

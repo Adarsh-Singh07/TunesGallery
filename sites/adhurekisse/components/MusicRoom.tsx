@@ -13,6 +13,7 @@ import type { Song } from "../data/songs";
 import { LiveListeners, LiveTimeWeather } from "./TopbarWidgets";
 import ChatPanel from "./ChatPanel";
 import AuthGate from "./AuthGate";
+import { jamCodeFromPath } from "./private-library/helpers";
 import JamPanel from "./jam/JamPanel";
 import { supabase } from "../lib/supabase";
 import { getSession, getProfile, signOut, authedFetch, type Profile, type TrackRow } from "../lib/auth";
@@ -186,9 +187,10 @@ export default function MusicRoom() {
   useEffect(() => {
     if (autoJoinTried.current) return;
     if (!signedIn || !hasEntered || jam.phase !== "idle") return;
-    const code = new URLSearchParams(window.location.search).get("jam");
+    const code = jamCodeFromPath(`${window.location.pathname}${window.location.search}${window.location.hash}`);
     if (code) {
       autoJoinTried.current = true;
+      setJamOpen(true);
       void jam.actions.joinRoom(code);
     }
   }, [signedIn, hasEntered, jam.phase, jam.actions]);

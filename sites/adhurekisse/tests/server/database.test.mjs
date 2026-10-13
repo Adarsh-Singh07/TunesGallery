@@ -2,7 +2,8 @@
  * npm install --prefix /tmp/omnirush/adhurekisse-server --no-save --package-lock=false @electric-sql/pglite
  * PGLITE_ROOT=/tmp/omnirush/adhurekisse-server/node_modules/@electric-sql/pglite node --test tests/server/database.test.mjs
  * Auth and Realtime service schemas are minimal local fixtures; their services
- * themselves are not simulated. All three real migrations execute unchanged.
+ * themselves are not simulated. All four real migrations execute unchanged,
+ * including an upgrade with existing rows created under 0001 and 0003.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,6 +20,9 @@ const { citext } = await load("contrib/citext.js", "@electric-sql/pglite/contrib
 test("private library forward migrations enforce authentication, RLS and atomic RPC contracts", async (t) => {
   const db = new PGlite({ extensions: { pgcrypto, citext } });
   const host = randomUUID(), guest = randomUUID(), outsider = randomUUID(), inactive = randomUUID();
+  const legacyAdmin = randomUUID(), legacyPending = randomUUID(), legacyUnconfirmed = randomUUID();
+  const legacyActive = randomUUID(), legacyRevoked = randomUUID(), legacyMissing = randomUUID();
+  let legacyBeforeUpgrade;
   const track = randomUUID(), track2 = randomUUID();
   let room, code, playlist, uploadId;
   const admin = (sql, values = []) => { return db.exec("reset role").then(() => db.query(sql, values)); };
@@ -36,7 +40,8 @@ test("private library forward migrations enforce authentication, RLS and atomic 
       create role anon; create role authenticated; create role service_role bypassrls;
       create schema auth; create schema extensions; create schema realtime;
       create extension pgcrypto with schema extensions;
-      create table auth.users(id uuid primary key,email text unique,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
+      create table auth.users(id uuid primary key,email text unique,email_confirmed_at timestamptz,
+        is_anonymous boolean default false,banned_until timestamptz,raw_user_meta_data jsonb default '{}');
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
       grant usage on schema auth to anon,authenticated,service_role;
       create table realtime.messages(id bigint,extension text,topic text);
@@ -46,39 +51,188 @@ test("private library forward migrations enforce authentication, RLS and atomic 
       create function realtime.topic() returns text language sql stable as $$ select current_setting('realtime.topic',true) $$;
       create publication supabase_realtime;
     `);
-    for (const migration of ["0001_init.sql", "0002_chat_messages.sql", "0003_private_library_hardening.sql"]) {
+    for (const migration of ["0001_init.sql", "0002_chat_messages.sql", "0003_private_library_hardening.sql", "0004_public_registration.sql"]) {
+      await db.exec("reset role");
       const sql = await readFile(new URL(`../../supabase/migrations/${migration}`, import.meta.url), "utf8");
       try { await db.exec(sql); }
       catch (error) {
         const position = Number(error.position ?? error.internalPosition ?? 1) - 1;
         throw new Error(`${migration}: ${error.message}; line ${sql.slice(0, position).split("\n").length}; near ${sql.slice(Math.max(0, position - 100), position + 200)}; context ${error.where ?? error.internalQuery ?? ""}`);
       }
+      if (migration === "0002_chat_messages.sql") {
+        // 0001's unsafe first-user bit is genuine legacy state, not a new-row
+        // approximation after the hardening migrations have already run.
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,'legacy-admin@example.test',now())", [legacyAdmin]);
+        assert.equal(scalar(await admin("select is_admin from public.profiles where id=$1", [legacyAdmin])), true);
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,'legacy-pending@example.test',now()),($2,'legacy-unconfirmed@example.test',null)", [legacyPending, legacyUnconfirmed]);
+      }
+      if (migration === "0003_private_library_hardening.sql") {
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,'host@example.test',now())", [host]);
+        await admin("update public.profiles set is_admin=true,is_active=true where id=$1", [host]);
+        for (const [id, email] of [[legacyActive, "legacy-active@example.test"], [legacyRevoked, "legacy-revoked@example.test"], [legacyMissing, "legacy-missing@example.test"]]) {
+          await admin("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())", [id, email]);
+        }
+        for (const [id, email] of [[legacyActive, "legacy-active@example.test"], [legacyRevoked, "legacy-revoked@example.test"]]) {
+          const invite = scalar(await as(host, "select public.manage_invitation('create',$1)", [email]));
+          assert.equal(scalar(await as(id, "select public.accept_invitation()")), true);
+          if (id === legacyRevoked) await as(host, "select public.manage_invitation('revoke',null,$1)", [invite.id]);
+        }
+        await as(host, "select public.manage_invitation('create','legacy-pending@example.test')");
+        await admin("delete from public.profiles where id=$1", [legacyMissing]);
+        legacyBeforeUpgrade = (await admin("select * from public.profiles order by id")).rows;
+        await admin("delete from private.rate_limits");
+      }
     }
-    await t.test("no first-user escalation, metadata privilege escalation or automatic active profile", async () => {
-      await admin("insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,'host@example.test',now(),'{\"is_admin\":true,\"is_active\":true}')", [host]);
-      const result = await admin("select is_admin,is_active from public.profiles where id=$1", [host]);
-      assert.deepEqual(result.rows[0], { is_admin: false, is_active: false });
-      assert.equal(scalar(await as(host, "select public.accept_invitation()")), false);
-      await admin("update public.profiles set is_admin=true,is_active=true where id=$1", [host]);
+    await t.test("upgrade preserves active roles and locks all ambiguous legacy inactive profiles", async () => {
+      const upgraded = (await admin("select * from public.profiles order by id")).rows;
+      assert.deepEqual(upgraded.map(({ activation_eligible, activation_provenance, ...old }) => {
+        assert.equal(activation_eligible, false);
+        assert.equal(activation_provenance, "legacy_locked");
+        return old;
+      }), legacyBeforeUpgrade);
+      for (const id of [host, legacyActive]) {
+        for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), true);
+      }
+      assert.equal(scalar(await admin("select is_admin from public.profiles where id=$1", [host])), true);
+      await admin("update auth.users set email_confirmed_at=now() where id=$1", [legacyUnconfirmed]);
+      for (const id of [legacyAdmin, legacyPending, legacyUnconfirmed, legacyRevoked, legacyMissing]) {
+        for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), false);
+        assert.equal((await as(id, "select id from public.profiles")).rows.length, 0);
+      }
+      // Merely retaining 0001's is_admin bit never makes this legacy row active.
+      assert.equal(scalar(await as(legacyAdmin, "select public.current_is_admin()")), false);
+    });
+    await t.test("operator-verified legacy opt-in requires confirmation and clears the old admin bit", async () => {
+      await admin("update public.profiles set activation_eligible=true,activation_provenance='operator_verified' where id=$1", [legacyAdmin]);
+      await admin("update auth.users set email_confirmed_at=null where id=$1", [legacyAdmin]);
+      assert.equal(scalar(await as(legacyAdmin, "select public.activate_account()")), false);
+      await admin("update auth.users set email_confirmed_at=now() where id=$1", [legacyAdmin]);
+      assert.equal(scalar(await as(legacyAdmin, "select public.accept_invitation()")), true);
+      assert.deepEqual((await admin("select is_admin,is_active,activation_eligible,activation_provenance from public.profiles where id=$1", [legacyAdmin])).rows[0], {
+        is_admin: false, is_active: true, activation_eligible: false, activation_provenance: "operator_verified",
+      });
+    });
+    await t.test("public registration never bootstraps an administrator when none exists", async () => {
+      const id = randomUUID();
+      await admin("update public.profiles set is_admin=false where id=$1", [host]);
+      try {
+        assert.equal(scalar(await admin("select count(*)::int from public.profiles where is_admin")), 0);
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,'no-admin@example.test',now())", [id]);
+        assert.equal(scalar(await as(id, "select public.activate_account()")), true);
+        assert.equal(scalar(await as(id, "select public.current_is_admin()")), false);
+        assert.equal(scalar(await admin("select count(*)::int from public.profiles where is_admin")), 0);
+      } finally {
+        await admin("update public.profiles set is_admin=true where id=$1", [host]);
+      }
+    });
+    await t.test("metadata cannot grant privileges or activation eligibility to a new account", async () => {
+      const id = randomUUID();
+      await admin("insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,'metadata@example.test',now(),$2::jsonb)", [id, JSON.stringify({
+        is_admin: true, is_active: true, role: "admin", activation_eligible: true, activation_provenance: "operator_verified", display_name: "M".repeat(100),
+      })]);
+      assert.deepEqual((await admin("select is_admin,is_active,activation_eligible,activation_provenance,length(display_name) as name_length from public.profiles where id=$1", [id])).rows[0], {
+        is_admin: false, is_active: false, activation_eligible: true, activation_provenance: "public_registration", name_length: 80,
+      });
+      assert.equal(scalar(await as(id, "select public.activate_account()")), true);
+      assert.equal(scalar(await as(id, "select public.current_is_admin()")), false);
+      await assert.rejects(as(id, "select public.manage_invitation('create','nope@example.test')"), /FORBIDDEN/);
       for (const [id, email] of [[guest, "guest@example.test"], [outsider, "outsider@example.test"], [inactive, "inactive@example.test"]]) {
         await admin("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())", [id, email]);
       }
     });
-    await t.test("confirmed invitation activation and revoked invitation denial", async () => {
+    await t.test("unconfirmed profiles stay RLS-hidden until Auth confirmation then activate repeatedly", async () => {
+      const id = randomUUID();
+      await admin("insert into auth.users(id,email,raw_user_meta_data) values($1,'unconfirmed@example.test','{\"email_confirmed_at\":\"2026-01-01\",\"is_active\":true}')", [id]);
+      for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), false);
+      assert.equal((await as(id, "select id from public.profiles")).rows.length, 0);
+      assert.equal(scalar(await admin("select activation_eligible from public.profiles where id=$1", [id])), true);
+      await admin("update auth.users set email_confirmed_at=now() where id=$1", [id]);
+      for (const rpc of ["activate_account", "accept_invitation", "activate_account"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), true);
+      assert.deepEqual((await as(id, "select id,is_active,is_admin,activation_eligible from public.profiles")).rows, [{ id, is_active: true, is_admin: false, activation_eligible: false }]);
+      assert.equal(scalar(await admin("select count(*)::int from public.invitations where accepted_user_id=$1", [id])), 0);
+      assert.ok((await as(id, "select * from public.jam_create_room()")).rows[0].room_id);
+    });
+    await t.test("activation holds the 0003 access-mutation lock through transaction completion", async () => {
+      await db.exec("begin");
+      try {
+        assert.equal(scalar(await as(host, "select public.activate_account()")), true);
+        assert.equal(scalar(await db.query("select exists(select 1 from pg_locks where locktype='advisory' and classid=9182026 and objid=1 and objsubid=2 and mode='ExclusiveLock' and granted and pid=pg_backend_pid())")), true);
+      } finally { await db.exec("rollback"); }
+    });
+    await t.test("confirmed invited and public accounts activate without metadata privileges", async () => {
       const invite = scalar(await as(host, "select public.manage_invitation('create','guest@example.test')"));
       assert.ok(invite.id);
-      // Simulate a legacy profile with the old first-user admin bit.
+      // Even a stray admin bit on an eligible inactive row must be cleared.
       await admin("update public.profiles set is_admin=true where id=$1", [guest]);
       assert.equal(scalar(await as(guest, "select public.accept_invitation()")), true);
       assert.equal(scalar(await admin("select is_admin from public.profiles where id=$1", [guest])), false);
-      assert.equal(scalar(await as(outsider, "select public.accept_invitation()")), false);
-      const revoked = scalar(await as(host, "select public.manage_invitation('create','inactive@example.test')"));
-      await as(host, "select public.manage_invitation('revoke',null,$1)", [revoked.id]);
-      assert.equal(scalar(await as(inactive, "select public.accept_invitation()")), false);
-      await admin("update public.profiles set is_active=true where id=$1", [outsider]);
+      assert.deepEqual((await admin("select accepted_user_id,accepted_at is not null as accepted from public.invitations where id=$1", [invite.id])).rows[0], { accepted_user_id: guest, accepted: true });
+      assert.equal(scalar(await admin("select invitation_id from public.profiles where id=$1", [guest])), invite.id);
+      // A confirmed user does not need an invitation to listen or start a Jam.
+      assert.equal(scalar(await as(outsider, "select public.activate_account()")), true);
+      assert.equal(scalar(await admin("select is_active from public.profiles where id=$1", [outsider])), true);
+    });
+    await t.test("revoking an accepted invitation disables access permanently through both activation RPCs", async () => {
+      const invite = scalar(await as(host, "select public.manage_invitation('create','inactive@example.test')"));
+      assert.equal(scalar(await as(inactive, "select public.activate_account()")), true);
+      await as(host, "select public.manage_invitation('revoke',null,$1)", [invite.id]);
+      assert.deepEqual((await admin("select is_active,activation_eligible,activation_provenance from public.profiles where id=$1", [inactive])).rows[0], {
+        is_active: false, activation_eligible: false, activation_provenance: "operator_disabled",
+      });
+      // A new invitation does not override an existing account disable.
+      await as(host, "select public.manage_invitation('create','inactive@example.test')");
+      for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(inactive, `select public.${rpc}()`)), false);
+      assert.equal((await as(inactive, "select * from public.profiles")).rows.length, 0);
+    });
+    await t.test("operator disables cannot be bypassed by repeated activation or metadata updates", async () => {
+      for (const initiallyActive of [true, false]) {
+        const id = randomUUID();
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())", [id, `${id}@example.test`]);
+        if (initiallyActive) assert.equal(scalar(await as(id, "select public.activate_account()")), true);
+        // false -> false on a pending profile is also an explicit disable.
+        await admin("update public.profiles set is_active=false where id=$1", [id]);
+        await admin("update auth.users set raw_user_meta_data='{\"is_active\":true,\"activation_eligible\":true}' where id=$1", [id]);
+        for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), false);
+        assert.equal(scalar(await admin("select activation_eligible from public.profiles where id=$1", [id])), false);
+      }
+    });
+    await t.test("unusable optional invitations do not prevent new public registration", async () => {
+      for (const invalid of ["revoked", "expired", "inactive-issuer"]) {
+        const id = randomUUID(), inviteId = randomUUID(), email = `${id}@example.test`;
+        await admin("insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())", [id, email]);
+        await admin("insert into public.invitations(id,email,invited_by,revoked_at,expires_at) values($1,$2,$3,$4,$5)", [
+          inviteId, email, invalid === "inactive-issuer" ? legacyRevoked : host,
+          invalid === "revoked" ? new Date() : null, new Date(Date.now() + (invalid === "expired" ? -60_000 : 60_000)),
+        ]);
+        assert.equal(scalar(await as(id, "select public.activate_account()")), true);
+        assert.equal(scalar(await admin("select invitation_id from public.profiles where id=$1", [id])), null);
+        assert.equal(scalar(await admin("select accepted_at from public.invitations where id=$1", [inviteId])), null);
+      }
+    });
+    await t.test("anonymous, absent, banned and email-less Auth identities cannot activate", async () => {
+      for (const rpc of ["activate_account", "accept_invitation"]) {
+        await assert.rejects(as(null, `select public.${rpc}()`, [], "anon"), /permission denied/);
+        assert.equal(scalar(await as(null, `select public.${rpc}()`)), false);
+        assert.equal(scalar(await as(randomUUID(), `select public.${rpc}()`)), false);
+      }
+      for (const [email, anonymous, banned] of [[null, true, false], ["anonymous@example.test", true, false], [null, false, false], [" ", false, false], ["banned@example.test", false, true]]) {
+        const id = randomUUID();
+        await admin("insert into auth.users(id,email,email_confirmed_at,is_anonymous,banned_until) values($1,$2,now(),$3,$4)", [id, email, anonymous, banned ? new Date(Date.now() + 60_000) : null]);
+        for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(id, `select public.${rpc}()`)), false);
+        assert.equal(scalar(await admin("select is_active from public.profiles where id=$1", [id])), false);
+      }
+      // A missing physical profile has no trusted enrollment provenance.
+      const id = randomUUID();
+      await admin("insert into auth.users(id,email,email_confirmed_at) values($1,'missing-profile@example.test',now())", [id]);
+      await admin("delete from public.profiles where id=$1", [id]);
+      assert.equal(scalar(await as(id, "select public.activate_account()")), false);
     });
     await t.test("least-privilege table and function ACLs deny direct bypass", async () => {
-      await assert.rejects(as(guest, "update public.profiles set is_admin=true where id=$1", [guest]), /permission denied/);
+      for (const assignment of ["is_admin=true", "is_active=true", "activation_eligible=true", "activation_provenance='operator_verified'", "email='forged@example.test'", "invitation_id=null"]) {
+        for (const user of [guest, inactive]) await assert.rejects(as(user, `update public.profiles set ${assignment} where id=$1`, [user]), /permission denied/);
+      }
+      await assert.rejects(as(guest, "insert into public.profiles(id,email,is_active) values($1,'forged@example.test',true)", [randomUUID()]), /permission denied/);
+      for (const fn of ["handle_new_user", "guard_profile_activation_state"]) await assert.rejects(as(guest, `select public.${fn}()`), /permission denied/);
       await assert.rejects(as(guest, "select public.library_mutate($1,'create',$2,'{\"title\":\"stolen\"}')", [guest, track]), /permission denied/);
       await assert.rejects(as(null, "select public.jam_create_room()", [], "anon"), /permission denied/);
       await assert.rejects(as(inactive, "select public.jam_create_room()"), /FORBIDDEN/);
@@ -233,6 +387,7 @@ test("private library forward migrations enforce authentication, RLS and atomic 
       await admin("update public.profiles set is_active=false where id=$1", [guest]);
       assert.equal((await as(guest, "select * from public.tracks")).rows.length, 0);
       await assert.rejects(as(guest, "select public.send_chat_message('hello')"), /FORBIDDEN/);
+      for (const rpc of ["activate_account", "accept_invitation"]) assert.equal(scalar(await as(guest, `select public.${rpc}()`)), false);
     });
   } finally { await db.close(); }
 });
