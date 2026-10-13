@@ -186,7 +186,15 @@ begin
     update public.profiles
     set email = v_email,
         is_active = true,
-        is_admin = false,
+        -- An operator_verified row was explicitly vetted by trusted SQL, so
+        -- an admin flag it already carries (e.g. the library owner) is kept.
+        -- Public registration can never reach this branch with is_admin set:
+        -- handle_new_user forces false and only trusted SQL changes it.
+        is_admin = case
+          when v_profile.activation_provenance = 'operator_verified'
+            then v_profile.is_admin
+          else false
+        end,
         activation_eligible = false
     where id = v_uid;
   end if;
