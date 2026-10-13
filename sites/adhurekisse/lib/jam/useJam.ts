@@ -1,29 +1,15 @@
 "use client";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// useJam — React bridge between JamSession and the PlaybackManager.
-//
-// MusicRoom keeps using `usePlayback` controls for solo listening; once a jam
-// is active this hook routes control commands through the shared timeline and
-// lets authoritative state drive local playback.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlaybackManager } from "../playback/PlaybackManager";
 import type { Song } from "../../data/songs";
 import { supabase } from "../supabase";
 import { getProfile } from "../auth";
-import {
-  JamSession,
-  type JamUiState,
-  type PlayerAdapter,
-} from "./JamSession";
+import { JamSession, type JamUiState, type PlayerAdapter } from "./JamSession";
+import { attachJamTransport, type JamTransportHandlers } from "./transport";
+export type { JamTransportHandlers } from "./transport";
 
-export type JamPhase =
-  | "idle"          // not in a room
-  | "joining"       // create/join RPC in flight
-  | "active"        // in a room
-  | "ended";        // room finished
+export type JamPhase = "idle" | "joining" | "active" | "ended";
 
 export interface JamActions {
   createRoom: (collaborative: boolean) => Promise<void>;
@@ -32,10 +18,15 @@ export interface JamActions {
   end: () => Promise<void>;
   play: () => Promise<void>;
   pause: () => Promise<void>;
-  seek: (sec: number) => Promise<void>;
+  seek: (seconds: number) => Promise<void>;
+  next: () => Promise<void>;
+  previous: () => Promise<void>;
+  onEnded: () => Promise<void>;
+  resumeLocal: () => Promise<void>;
   playTrack: (index: number) => Promise<void>;
   addToQueue: (index: number) => Promise<void>;
   removeFromQueue: (queueItemId: string) => Promise<void>;
+  reorderQueue: (orderedIds: string[]) => Promise<void>;
   playQueueItem: (queueItemId: string) => Promise<void>;
   suggestTrack: (index: number) => Promise<void>;
   setCollaborative: (on: boolean) => Promise<void>;
@@ -45,230 +36,164 @@ export interface JamActions {
   cancelSleepTimer: () => void;
 }
 
-export function useJam(
-  getManager: () => PlaybackManager | null,
-  songs: Song[],
-) {
+export function useJam(getManager: () => PlaybackManager | null, songs: Song[]) {
   const [phase, setPhase] = useState<JamPhase>("idle");
   const [jamState, setJamState] = useState<JamUiState | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const sessionRef = useRef<JamSession | null>(null);
-  const managerStateRef = useRef<{ isPlaying: boolean; currentTime: number; duration: number; isLoading: boolean }>({
-    isPlaying: false, currentTime: 0, duration: 0, isLoading: false,
-  });
+  const detachRef = useRef<(() => void) | null>(null);
+  const generation = useRef(0);
+  const joining = useRef(false);
+  const mounted = useRef(true);
   const songsRef = useRef(songs);
   songsRef.current = songs;
 
-  // Keep a live mirror of manager state for the PlayerAdapter
-  useEffect(() => {
-    const mgr = getManager();
-    if (!mgr) return;
-    return mgr.subscribe((s) => {
-      managerStateRef.current = {
-        isPlaying: s.isPlaying,
-        currentTime: s.currentTime,
-        duration: s.duration,
-        isLoading: s.isLoading,
-      };
+  const detach = useCallback(() => {
+    detachRef.current?.();
+    detachRef.current = null;
+    sessionRef.current?.dispose();
+    sessionRef.current = null;
+  }, []);
+
+  const attachSession = useCallback(async (roomId: string, userId: string, displayName: string) => {
+    detach();
+    const manager = getManager() as (PlaybackManager & {
+      setTransportHandlers?: (handlers: JamTransportHandlers | null) => void | (() => void);
+    }) | null;
+    if (!manager?.setTransportHandlers) throw new Error("The player is not ready for Jam yet. Try again in a moment.");
+    // Query getState directly: manager.subscribe intentionally omits time-only updates.
+    const assertPlayer = () => {
+      const state = manager.getState();
+      if (state.hasError) throw new Error(state.errorMessage || "Audio could not be loaded.");
+    };
+    const player: PlayerAdapter = {
+      loadTrack: async (index, autoplay) => { await manager.selectSong(index, autoplay); assertPlayer(); },
+      play: async () => {
+        await manager.play();
+        assertPlayer();
+        if (!manager.getState().isPlaying) throw new Error("Tap Enable audio to allow playback on this device.");
+      },
+      pause: () => manager.pause(),
+      seek: (seconds) => manager.seek(seconds),
+      setRate: (rate) => manager.setRate(rate),
+      getPosition: () => manager.getState().currentTime,
+      getDuration: () => manager.getState().duration,
+      isPlaying: () => manager.getState().isPlaying,
+      isBuffered: () => { const s = manager.getState(); return !s.isLoading && !s.hasError && s.duration > 0; },
+    };
+    const session = new JamSession({
+      db: supabase!, roomId, userId, displayName, player,
+      resolveTrack: (id) => {
+        const index = songsRef.current.findIndex((song) => song.playback?.r2TrackId === id);
+        return index < 0 ? null : index;
+      },
     });
-  }, [getManager]);
-
-  const resolveTrack = useCallback(
-    (trackId: string): number | null => {
-      const idx = songsRef.current.findIndex((s) => s.playback?.r2TrackId === trackId);
-      return idx !== -1 ? idx : null;
-    },
-    [],
-  );
-
-  // Player adapter drives the manager on behalf of the shared timeline
-  const buildAdapter = useCallback((): PlayerAdapter => {
-    const mgr = () => getManager();
-    return {
-      loadTrack: async (index, autoplay) => {
-        await mgr()?.selectSong(index, autoplay);
-      },
-      play: async () => {
-        const m = mgr();
-        if (!m) return;
-        const st = m.getState();
-        if (st.currentTime > 0 || st.duration > 0) {
-          await m.play();
-        } else {
-          await m.selectSong(st.currentIndex, true);
-        }
-      },
-      pause: async () => mgr()?.pause(),
-      seek: async (sec) => mgr()?.seek(sec),
-      setRate: async (rate) => mgr()?.setRate(rate),
-      getPosition: () => managerStateRef.current.currentTime,
-      isPlaying: () => managerStateRef.current.isPlaying,
-      isBuffered: () =>
-        !managerStateRef.current.isLoading && managerStateRef.current.duration > 0,
+    sessionRef.current = session;
+    const releaseTransport = attachJamTransport({
+      setTransportHandlers: (handlers) => manager.setTransportHandlers!(handlers),
+      subscribe: (listener) => manager.subscribe(listener),
+    }, session, (error) => {
+      if (mounted.current && sessionRef.current === session) setJoinError(error instanceof Error ? error.message : "Jam control failed.");
+    });
+    let unsubscribeSession = () => {};
+    let detached = false;
+    const cleanup = () => {
+      if (detached) return;
+      detached = true;
+      releaseTransport();
+      unsubscribeSession();
     };
-  }, [getManager]);
-
-  const attachSession = useCallback(
-    (roomId: string, userId: string, displayName: string) => {
-      sessionRef.current?.dispose();
-      const session = new JamSession({
-        db: supabase!,
-        roomId,
-        userId,
-        displayName,
-        player: buildAdapter(),
-        resolveTrack,
-      });
-      void session.subscribe(setJamState);
-      void session.start();
-      sessionRef.current = session;
-      setPhase("active");
-    },
-    [buildAdapter, resolveTrack],
-  );
-
-  // ── Actions ────────────────────────────────────────────────────────────────
-
-  const createRoom = useCallback(
-    async (collaborative: boolean) => {
-      if (!supabase) return;
-      setJoinError(null);
-      setPhase("joining");
-      try {
-        const profile = await getProfile();
-        const { roomId } = await JamSession.createRoom(supabase, collaborative);
-        attachSession(roomId, profile!.id, profile?.display_name || profile?.email || "Host");
-      } catch (err) {
-        setPhase("idle");
-        setJoinError(err instanceof Error ? err.message : "Could not create the room.");
+    detachRef.current = cleanup;
+    unsubscribeSession = session.subscribe((state) => {
+      if (!mounted.current || sessionRef.current !== session) return;
+      setJamState(state);
+      if (state.connection === "ended") {
+        cleanup();
+        sessionRef.current = null;
+        setPhase("ended");
       }
-    },
-    [attachSession],
-  );
-
-  const joinRoom = useCallback(
-    async (code: string) => {
-      if (!supabase) return;
-      setJoinError(null);
-      setPhase("joining");
-      try {
-        const profile = await getProfile();
-        const roomId = await JamSession.joinRoom(supabase, code);
-        attachSession(roomId, profile!.id, profile?.display_name || profile?.email || "Guest");
-      } catch (err) {
-        setPhase("idle");
-        setJoinError(err instanceof Error ? err.message : "Could not join the room.");
-      }
-    },
-    [attachSession],
-  );
-
-  const leave = useCallback(async () => {
-    await sessionRef.current?.leave();
-    sessionRef.current = null;
-    setJamState(null);
-    setPhase("idle");
-  }, []);
-
-  const end = useCallback(async () => {
+    });
     try {
-      await sessionRef.current?.endRoom();
-    } catch {
-      /* room may already be ended */
+      await session.start();
+      if (mounted.current && sessionRef.current === session) setPhase("active");
+    } catch (error) {
+      cleanup();
+      session.dispose();
+      if (sessionRef.current === session) sessionRef.current = null;
+      throw error;
     }
-    await sessionRef.current?.leave();
-    sessionRef.current = null;
-    setJamState(null);
-    setPhase("idle");
-  }, []);
+  }, [detach, getManager]);
 
-  const jamStateRef = useRef<JamUiState | null>(null);
-  jamStateRef.current = jamState;
+  const enter = useCallback(async (kind: "create" | "join", value: boolean | string) => {
+    if (joining.current || sessionRef.current) return;
+    const token = ++generation.current;
+    joining.current = true;
+    setJoinError(null);
+    setPhase("joining");
+    try {
+      if (!supabase) throw new Error("Sign in to start a Jam.");
+      const manager = getManager() as (PlaybackManager & { setTransportHandlers?: unknown }) | null;
+      if (typeof manager?.setTransportHandlers !== "function") throw new Error("The player is not ready for Jam yet. Try again in a moment.");
+      const profile = await getProfile();
+      if (!profile) throw new Error("Sign in to start a Jam.");
+      if (!mounted.current || token !== generation.current) return;
+      const roomId = kind === "create"
+        ? (await JamSession.createRoom(supabase, Boolean(value))).roomId
+        : await JamSession.joinRoom(supabase, String(value));
+      if (!mounted.current || token !== generation.current) return;
+      await attachSession(roomId, profile.id, profile.display_name || "Listener");
+    } catch (error) {
+      if (mounted.current && token === generation.current) {
+        setPhase("idle");
+        setJamState(null);
+        setJoinError(error instanceof Error ? error.message : "Could not open the room.");
+      }
+    } finally { if (token === generation.current) joining.current = false; }
+  }, [attachSession, getManager]);
 
-  const actions = useRef<JamActions | null>(null);
-  if (!actions.current) {
-    const s = () => sessionRef.current;
-    const orNull = () => {
-      const session = s();
-      return session;
+  const actions = useMemo<JamActions>(() => {
+    const session = () => {
+      if (!sessionRef.current) throw new Error("Join a Jam first.");
+      return sessionRef.current;
     };
-    actions.current = {
-      createRoom,
-      joinRoom,
-      leave,
-      end,
-      play: async () => {
-        const session = orNull();
-        session?.wake();
-        await session?.play();
-      },
-      pause: async () => { await orNull()?.pause(); },
-      seek: async (sec) => { await orNull()?.seek(sec); },
-      playTrack: async (index) => {
-        const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        const session = orNull();
-        if (!session || !trackId) return;
-        await session.setTrack(trackId);
-      },
-      addToQueue: async (index) => {
-        const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        const session = orNull();
-        if (!session || !trackId) return;
-        await session.addToQueue(trackId);
-      },
-      removeFromQueue: async (queueItemId) => {
-        await orNull()?.removeFromQueue(queueItemId);
-      },
-      playQueueItem: async (queueItemId) => {
-        const item = jamStateRef.current?.queue.find((q) => q.id === queueItemId);
-        const session = orNull();
-        if (!session || !item) return;
-        await session.setTrack(item.trackId);
-      },
-      suggestTrack: async (index) => {
-        const trackId = songsRef.current[index]?.playback?.r2TrackId;
-        const session = orNull();
-        if (!session || !trackId) return;
-        await session.suggestTrack(trackId);
-      },
-      setCollaborative: async (on) => { await orNull()?.setCollaborative(on); },
-      sendChat: (text) => orNull()?.sendChat(text),
-      sendReaction: (emoji) => orNull()?.sendReaction(emoji),
-      startSleepTimer: (ms) => orNull()?.startSleepTimer(ms),
-      cancelSleepTimer: () => orNull()?.cancelSleepTimer(),
+    const track = (index: number) => {
+      const id = songsRef.current[index]?.playback?.r2TrackId;
+      if (!id) throw new Error("Only private audio tracks can be shared in Jam.");
+      return id;
     };
-  }
-
-  // ── Readiness: tell the session when the pending track finished buffering ──
-  useEffect(() => {
-    const session = sessionRef.current;
-    if (!session || !jamState?.state) return;
-    const pending = jamState.state.trackId && jamState.state.playbackState === "idle";
-    if (pending && !managerStateRef.current.isLoading && managerStateRef.current.duration > 0) {
-      session.notifyPlayerReady();
-    }
-  }, [jamState?.state?.trackId, jamState?.state?.playbackState, managerStateRef.current.isLoading, managerStateRef.current.duration, jamState]);
-
-  // ── Cleanup ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      sessionRef.current?.dispose();
-      sessionRef.current = null;
+    const reset = () => { detach(); setJamState(null); setPhase("idle"); };
+    return {
+      createRoom: (collaborative) => enter("create", collaborative),
+      joinRoom: (code) => enter("join", code),
+      leave: async () => { await sessionRef.current?.leave(); reset(); },
+      end: async () => { await session().endRoom(); reset(); },
+      play: () => session().play(), pause: () => session().pause(), seek: (sec) => session().seek(sec),
+      next: () => session().skipNext(), previous: () => session().seek(0),
+      onEnded: async () => { await sessionRef.current?.onEnded(); },
+      resumeLocal: () => session().resumeLocal(),
+      playTrack: (index) => session().setTrack(track(index)),
+      addToQueue: (index) => session().addToQueue(track(index)),
+      removeFromQueue: (id) => session().removeFromQueue(id),
+      reorderQueue: (ids) => session().reorderQueue(ids),
+      playQueueItem: async (id) => {
+        await session().playQueueItem(id);
+      },
+      suggestTrack: (index) => session().suggestTrack(track(index)),
+      setCollaborative: (on) => session().setCollaborative(on),
+      sendChat: (text) => sessionRef.current?.sendChat(text),
+      sendReaction: (emoji) => sessionRef.current?.sendReaction(emoji),
+      startSleepTimer: (ms) => sessionRef.current?.startSleepTimer(ms),
+      cancelSleepTimer: () => sessionRef.current?.cancelSleepTimer(),
     };
-  }, []);
+  }, [detach, enter]);
 
-  // Derive ended phase from session state
+  // Retry resolution when the private library arrives after the room timeline.
+  useEffect(() => { sessionRef.current?.refreshLibrary(); }, [songs]);
   useEffect(() => {
-    if (jamState?.connection === "ended" || jamState?.state?.playbackState === "ended") {
-      if (phase === "active") setPhase("ended");
-    }
-  }, [jamState?.connection, jamState?.state?.playbackState, phase]);
+    mounted.current = true;
+    const generationAtMount = generation.current;
+    return () => { mounted.current = false; generation.current = generationAtMount + 1; joining.current = false; detach(); };
+  }, [detach]);
 
-  return {
-    phase,
-    jamState,
-    joinError,
-    actions: actions.current!,
-    session: sessionRef,
-  };
+  return { phase, jamState, joinError, actions, session: sessionRef };
 }

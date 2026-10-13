@@ -1,5 +1,14 @@
 # Known limitations, unverified assumptions & security notes
 
+> **Adhure Kisse supersession (2026-10-03):** For `sites/adhurekisse`, use
+> [ADHUREKISSE-ARCHITECTURE.md](ADHUREKISSE-ARCHITECTURE.md),
+> [ADHUREKISSE-SECURITY.md](ADHUREKISSE-SECURITY.md) and
+> [ANDROID-TEST-MATRIX.md](ANDROID-TEST-MATRIX.md). Historical whole-site check
+> results do not verify the current working tree. Jam-derived grants, one-hour
+> streams, public topics as capabilities, automatic admin and missing persistent
+> rate-limit descriptions below are superseded. Media3 is a possible native
+> architecture, not a guarantee of background synchronization.
+
 Honest record of what is implemented, what is *not*, and what could not be
 verified without real devices / live services.
 
@@ -7,14 +16,9 @@ verified without real devices / live services.
 
 ## What was verified in this workspace
 
-- `tsc --noEmit` clean on **both** sites.
-- Production builds succeed on **both** sites (all routes compile).
-- **30/30 unit tests pass** per site: timeline math (expected position, drift
-  classification at the 80/250 ms boundaries, nudge-rate clamping), NTP-style
-  clock estimation (symmetric + asymmetric delay behavior), and the Jam
-  command path (role authorization, revision-guard rejection + refetch,
-  state-machine transitions, ended-room rejection).
-- Static review of every new API route and RLS policy.
+- `sites/adhurekisse`: `tsc --noEmit --incremental false` clean, production build clean, 81/81 unit tests, 20/20 server tests, AWS presign tests, and 19/19 PGlite migration/RLS scenarios pass.
+- `sites/adhurekisse`: 27 substantive local browser acceptance tests pass against the isolated Next/fake Supabase/R2 stack; three optional axe audit tests remain skipped without `QA_AXE_SOURCE`.
+- Static review and automated coverage include the new API routes, storage lifecycle, playlists, authentication boundaries, RLS policies, persistent playback and Jam transport.
 
 ## What requires the owner's live stack (documented, not run here)
 
@@ -24,9 +28,7 @@ These need real Supabase + R2 credentials and were **not** executed:
 - Real uploads to / streams from R2 (CORS config, presigned URL TTLs).
 - Live Supabase Auth OTP round-trip and the `handle_new_user` bootstrap.
 - Realtime postgres_changes delivery against real RLS.
-- The Playwright suite in `tests/e2e/` — specs are complete and skip
-  themselves with a clear message until `E2E_*` variables exist. **No e2e
-  result is claimed.**
+- Hosted Playwright acceptance in `tests/e2e/`, which requires a disposable live Supabase/R2/Auth stack and `E2E_*` credentials. The local browser harness is covered above; hosted acceptance is not claimed.
 
 ## Android / PWA limitations (cannot be bypassed in a PWA)
 

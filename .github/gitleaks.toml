@@ -1,0 +1,39 @@
+title = "TunesGallery credential and private-media capability scanning"
+minVersion = "v8.25.0"
+
+[extend]
+useDefault = true
+
+# Keep default credential rules. Do not blanket-exempt env examples or tests.
+[[rules]]
+id = "r2-credential-assignment"
+description = "Cloudflare R2 S3 credential in a literal assignment"
+regex = '''(?i)(?:R2_ACCESS_KEY_ID|R2_SECRET_ACCESS_KEY)[\s"']{0,4}[:=][\s"']{0,4}([a-f0-9]{32,64})\b'''
+secretGroup = 1
+keywords = ["r2_access_key_id", "r2_secret_access_key"]
+
+[[rules]]
+id = "supabase-server-secret"
+description = "Supabase server-only secret API key"
+regex = '''\b(sb_secret_[A-Za-z0-9_-]{20,})\b'''
+secretGroup = 1
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "supabase-service-jwt-assignment"
+description = "Supabase legacy service-role JWT in a literal assignment"
+regex = '''(?i)SUPABASE_SERVICE_ROLE_KEY[\s"']{0,4}[:=][\s"']{0,4}(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)'''
+secretGroup = 1
+keywords = ["supabase_service_role_key"]
+
+[[rules]]
+id = "s3-presigned-capability"
+description = "Presigned S3/R2 bearer capability must not be committed"
+regex = '''(?i)X-Amz-Signature(?:=|%3D)([a-f0-9]{64})\b'''
+secretGroup = 1
+keywords = ["x-amz-signature"]
+
+[[rules]]
+id = "browser-auth-state-file"
+description = "Persisted browser authentication state must not be committed"
+path = '''(?:^|/)(?:\.auth(?:/[^/]+|-[^/]+)\.json|storage-state(?:-[^/]+)?\.json|playwright/\.auth/[^/]+\.json)$'''

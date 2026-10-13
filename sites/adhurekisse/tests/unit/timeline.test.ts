@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DRIFT_THRESHOLDS,
+  adaptiveThresholds,
   NUDGE_SETTLE_MS,
   classifyDrift,
   driftMs,
@@ -35,6 +36,15 @@ describe("expectedPosition", () => {
     const scheduled = { ...base, positionSeconds: 0, updatedAt: 1_005_000 };
     expect(expectedPosition(scheduled, 1_003_000)).toBe(0);
     expect(expectedPosition(scheduled, 1_007_000)).toBeCloseTo(2, 3);
+  });
+
+  it("holds nonzero reference position before a scheduled start", () => {
+    expect(expectedPosition({ ...base, updatedAt: 1_005_000 }, 1_003_000)).toBe(30);
+  });
+
+  it("sanitizes invalid/negative positions", () => {
+    expect(expectedPosition({ ...base, positionSeconds: -5, playbackState: "paused" }, 0)).toBe(0);
+    expect(expectedPosition({ ...base, positionSeconds: NaN }, 1_000_000)).toBe(0);
   });
 });
 
@@ -72,6 +82,17 @@ describe("classifyDrift", () => {
   it("seeks beyond 250ms", () => {
     expect(classifyDrift(251, t)).toBe("seek");
     expect(classifyDrift(-900, t)).toBe("seek");
+  });
+
+  it("honors custom hard-seek boundaries and ignores invalid drift", () => {
+    expect(classifyDrift(500, { none: 100, nudge: 200, seek: 800 })).toBe("nudge");
+    expect(classifyDrift(801, { none: 100, nudge: 200, seek: 800 })).toBe("seek");
+    expect(classifyDrift(NaN)).toBe("none");
+  });
+
+  it("widens correction bands for network uncertainty with a bounded cap", () => {
+    expect(adaptiveThresholds(undefined, 400)).toEqual({ none: 280, nudge: 450, seek: 650 });
+    expect(adaptiveThresholds(undefined, 50_000)).toEqual({ none: 580, nudge: 750, seek: 1250 });
   });
 });
 

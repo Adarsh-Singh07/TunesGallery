@@ -44,7 +44,7 @@ const QuoteDisplay = memo(function QuoteDisplay({ quote: initialQuote, songId }:
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="quote-inner"
         >
-          <p className="quote-text">"{currentQuote.text}"</p>
+          <p className="quote-text">&ldquo;{currentQuote.text}&rdquo;</p>
           <p className="quote-attribution">
             <span className="quote-dash">—</span>
             <span className="quote-author">{currentQuote.author}</span>

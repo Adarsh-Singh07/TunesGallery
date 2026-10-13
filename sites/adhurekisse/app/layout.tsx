@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { site } from "../data/site";
+import { PlaybackProvider } from "../components/PlaybackContext";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://adhurekisse.vercel.app"),
@@ -41,7 +42,7 @@ export default function RootLayout({
       <head>
         <meta name="color-scheme" content="dark" />
       </head>
-      <body>{children}</body>
+      <body><PlaybackProvider>{children}</PlaybackProvider></body>
     </html>
   );
 }

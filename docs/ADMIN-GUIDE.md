@@ -1,5 +1,12 @@
 # Owner's Guide — uploading your songs & jamming with a friend
 
+> **Adhure Kisse supersession (2026-10-03):** For `sites/adhurekisse`, follow
+> [ADHUREKISSE-OPERATIONS.md](ADHUREKISSE-OPERATIONS.md) and
+> [ANDROID-TEST-MATRIX.md](ANDROID-TEST-MATRIX.md). Immediate upload/metadata,
+> title-based deduplication, immediate object deletion, guaranteed background
+> playback and automatic host-disconnect pause claims below are superseded by
+> the audited upload/GC/Jam contracts and unverified device acceptance.
+
 This is the practical walkthrough for the person who owns the library.
 
 ---

@@ -31,8 +31,9 @@ export function estimateFromSample(sample: ClockSample): ClockEstimate {
 }
 
 export function pickBestSample(samples: ClockEstimate[]): ClockEstimate | null {
-  if (samples.length === 0) return null;
-  return samples.reduce((best, s) => (s.rttMs < best.rttMs ? s : best));
+  const valid = samples.filter((s) => Number.isFinite(s.offsetMs) && Number.isFinite(s.rttMs) && s.rttMs >= 0 && s.rttMs <= 10_000);
+  if (valid.length === 0) return null;
+  return valid.reduce((best, s) => (s.rttMs < best.rttMs ? s : best));
 }
 
 /**
@@ -40,16 +41,42 @@ export function pickBestSample(samples: ClockEstimate[]): ClockEstimate | null {
  * Uses the min-RTT sample — the least contaminated by network delay.
  */
 export async function synchronizeClock(
-  ping: () => Promise<number>,
+  ping: (signal?: AbortSignal) => Promise<number>,
   rounds = 4,
+  options: { signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<ClockEstimate | null> {
   const estimates: ClockEstimate[] = [];
   for (let i = 0; i < rounds; i++) {
+    if (options.signal?.aborted) break;
     const t0 = Date.now();
-    const serverTs = await ping();
-    const t1 = Date.now();
-    if (Number.isFinite(serverTs)) estimates.push(estimateFromSample({ t0, t1, serverTs }));
-    if (i < rounds - 1) await new Promise((r) => setTimeout(r, 120));
+    const mono = performance.now();
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    options.signal?.addEventListener("abort", abort, { once: true });
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let rejectAbort: (() => void) | undefined;
+    try {
+      const cancelled = new Promise<never>((_, reject) => {
+        rejectAbort = () => reject(new Error("Clock sample cancelled"));
+        controller.signal.addEventListener("abort", rejectAbort, { once: true });
+        timeout = setTimeout(abort, options.timeoutMs ?? 1_500);
+      });
+      const serverTs = await Promise.race([ping(controller.signal), cancelled]);
+      const elapsed = performance.now() - mono;
+      // A wall-clock adjustment mid-request cannot be interpreted as network RTT.
+      if (Number.isFinite(serverTs) && Math.abs(Date.now() - t0 - elapsed) < 100) {
+        const estimate = estimateFromSample({ t0, t1: t0 + elapsed, serverTs });
+        // Sub-millisecond wall-clock noise is not meaningful for a phone Jam
+        // and makes tests (and drift thresholds) needlessly nondeterministic.
+        estimates.push({ offsetMs: Math.trunc(estimate.offsetMs), rttMs: estimate.rttMs });
+      }
+    } catch {
+      // One failed/slow sample must not discard the useful rounds.
+    } finally {
+      clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abort);
+      if (rejectAbort) controller.signal.removeEventListener("abort", rejectAbort);
+    }
   }
   return pickBestSample(estimates);
 }

@@ -151,7 +151,7 @@ export default function ChatPanel({ isOpen, onClose }: Props) {
               {!isNameSet ? (
                 <div style={{ margin: 'auto 0', textAlign: 'center' }}>
                   <UserCircle2 size={48} color="var(--ta)" style={{ margin: '0 auto 16px', opacity: 0.8 }} />
-                  <h3 style={{ color: 'var(--tp)', marginBottom: '8px', fontSize: '18px' }}>Who's listening?</h3>
+                  <h3 style={{ color: 'var(--tp)', marginBottom: '8px', fontSize: '18px' }}>Who&apos;s listening?</h3>
                   <p style={{ color: 'var(--tm)', fontSize: '12px', marginBottom: '24px', lineHeight: 1.5 }}>
                     Enter a name to join the global listening room and chat with others playing right now.
                   </p>

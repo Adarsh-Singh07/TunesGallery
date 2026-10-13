@@ -8,6 +8,10 @@
 // NEVER import this module from client code.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import "server-only";
+import { randomUUID } from "node:crypto";
+import { matchesMagic } from "./media";
+import { ApiError } from "./http";
 import {
   S3Client,
   PutObjectCommand,
@@ -17,7 +21,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export const R2_CONFIG = {
+const R2_CONFIG = {
   accountId: process.env.R2_ACCOUNT_ID ?? "",
   accessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
   secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",
@@ -30,7 +34,7 @@ export const MAX_AUDIO_BYTES = 200 * 1024 * 1024;
 export const MAX_ARTWORK_BYTES = 10 * 1024 * 1024;
 
 /** Short-lived playback authorization. Refresh happens client-side on expiry. */
-export const STREAM_URL_TTL_SECONDS = 60 * 60; // 1 hour
+export const STREAM_URL_TTL_SECONDS = 60 * 5;
 /** Upload authorization lifetime. */
 export const UPLOAD_URL_TTL_SECONDS = 60 * 15; // 15 minutes
 
@@ -71,6 +75,8 @@ function r2(): S3Client {
   if (!client) {
     client = new S3Client({
       region: "auto",
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
       endpoint: `https://${R2_CONFIG.accountId}.r2.cloudflarestorage.com`,
       credentials: {
         accessKeyId: R2_CONFIG.accessKeyId,
@@ -86,12 +92,12 @@ function r2(): S3Client {
 
 export function audioKey(trackId: string, ext: string): string {
   const safeExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
-  return `audio/${trackId}/original.${safeExt}`;
+  return `audio/${trackId}/${randomUUID()}.${safeExt}`;
 }
 
 export function artworkKey(trackId: string, ext: string): string {
   const safeExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg";
-  return `artwork/${trackId}/cover.${safeExt}`;
+  return `artwork/${trackId}/${randomUUID()}.${safeExt}`;
 }
 
 export function extFromMime(mime: string): string {
@@ -117,29 +123,42 @@ export function extFromMime(mime: string): string {
 
 /**
  * Presigned PUT for a direct browser → R2 upload. The browser streams the
- * file straight to R2 (XHR PUT reports upload progress); no audio bytes ever
- * pass through the serverless function. Size is enforced at finalize time via
- * a HEAD request before the track is marked ready.
+ * file straight to R2 (XHR PUT reports upload progress). Finalization reads
+ * HEAD plus at most a 4 KiB Range prefix, never the full media file. Optional
+ * exact size/checksum are bound to the signature; all limits are checked again
+ * before database publication. If-None-Match makes the capability write-once.
  */
 export async function presignUpload(
   key: string,
   contentType: string,
-  _maxBytes: number,
+  maxBytes: number,
+  sizeBytes?: number,
+  checksumMd5?: string,
 ): Promise<{ url: string; method: "PUT"; headers: Record<string, string> }> {
-  void _maxBytes; // enforced at finalize
+  if (sizeBytes !== undefined && (!Number.isSafeInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > maxBytes)) {
+    throw new ApiError(400, "Invalid upload size");
+  }
+  if (checksumMd5 !== undefined && !/^[a-f0-9]{32}$/.test(checksumMd5)) throw new ApiError(400, "Invalid MD5 checksum");
+  const md5 = checksumMd5 ? Buffer.from(checksumMd5, "hex").toString("base64") : undefined;
+  const headers: Record<string, string> = {
+    "Content-Type": contentType, "If-None-Match": "*", "Cache-Control": "private, no-store",
+  };
+  if (md5) headers["Content-MD5"] = md5;
   const url = await getSignedUrl(
     r2(),
-    new PutObjectCommand({ Bucket: R2_CONFIG.bucket, Key: key, ContentType: contentType }),
-    { expiresIn: UPLOAD_URL_TTL_SECONDS },
+    new PutObjectCommand({ Bucket: R2_CONFIG.bucket, Key: key, ContentType: contentType,
+      ContentLength: sizeBytes, ContentMD5: md5, IfNoneMatch: "*", CacheControl: "private, no-store" }),
+    { expiresIn: UPLOAD_URL_TTL_SECONDS,
+      signableHeaders: new Set(["content-type", "content-length", "content-md5", "if-none-match", "cache-control"]) },
   );
-  return { url, method: "PUT", headers: { "Content-Type": contentType } };
+  return { url, method: "PUT", headers };
 }
 
 /** Presigned GET for playback. Short-lived; refresh before expiry. */
 export async function presignStream(key: string): Promise<{ url: string; expiresAt: number }> {
   const url = await getSignedUrl(
     r2(),
-    new GetObjectCommand({ Bucket: R2_CONFIG.bucket, Key: key }),
+    new GetObjectCommand({ Bucket: R2_CONFIG.bucket, Key: key, ResponseCacheControl: "private, no-store" }),
     { expiresIn: STREAM_URL_TTL_SECONDS },
   );
   return { url, expiresAt: Date.now() + STREAM_URL_TTL_SECONDS * 1000 };
@@ -165,4 +184,33 @@ export async function deleteObject(key: string): Promise<void> {
 
 export async function deleteObjects(keys: string[]): Promise<void> {
   await Promise.all(keys.filter(Boolean).map((k) => deleteObject(k)));
+}
+
+/** Only single-PUT server-issued immutable keys are finalized. Never read the
+ * full media file through the function; cap the verification GET at 4 KiB. */
+export async function verifyUpload(intent: {
+  object_key: string; mime_type: string; kind: "audio" | "artwork";
+  expected_bytes: number | null; expected_md5: string | null;
+}): Promise<{ sizeBytes: number; checksumMd5: string }> {
+  const head = await r2().send(new HeadObjectCommand({ Bucket: R2_CONFIG.bucket, Key: intent.object_key }));
+  const size = head.ContentLength;
+  const max = intent.kind === "audio" ? MAX_AUDIO_BYTES : MAX_ARTWORK_BYTES;
+  if (!size || !Number.isSafeInteger(size) || size > max) throw new ApiError(422, "Invalid object size");
+  if (intent.expected_bytes !== null && Number(intent.expected_bytes) !== size) throw new ApiError(422, "Upload size mismatch");
+  if (head.ContentType?.toLowerCase() !== intent.mime_type) throw new ApiError(422, "Upload type mismatch");
+  // Multipart ETags are deliberately refused; our PUT capability cannot create
+  // multipart objects. R2 single-PUT ETags identify the complete object's MD5.
+  const md5 = head.ETag?.replace(/^"|"$/g, "").toLowerCase();
+  if (!md5 || !/^[a-f0-9]{32}$/.test(md5)) throw new ApiError(422, "Invalid object checksum");
+  if (intent.expected_md5 && md5 !== intent.expected_md5) throw new ApiError(422, "Upload checksum mismatch");
+  const length = Math.min(size, 4096);
+  const part = await r2().send(new GetObjectCommand({ Bucket: R2_CONFIG.bucket, Key: intent.object_key,
+    Range: `bytes=0-${length - 1}`, IfMatch: head.ETag }));
+  if (part.ContentLength !== length || part.ContentRange !== `bytes 0-${length - 1}/${size}` || !part.Body) {
+    (part.Body as { destroy?: () => void } | undefined)?.destroy?.();
+    throw new ApiError(422, "Unable to verify object range");
+  }
+  const bytes = await part.Body.transformToByteArray();
+  if (bytes.length !== length || !matchesMagic(bytes, intent.mime_type)) throw new ApiError(422, "File signature does not match its type");
+  return { sizeBytes: size, checksumMd5: md5 };
 }

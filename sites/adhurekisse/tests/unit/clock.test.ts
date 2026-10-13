@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   estimateFromSample,
   pickBestSample,
@@ -56,6 +56,13 @@ describe("pickBestSample", () => {
   it("returns null with no samples", () => {
     expect(pickBestSample([])).toBeNull();
   });
+
+  it("rejects invalid and suspended-request RTT samples", () => {
+    expect(pickBestSample([
+      { offsetMs: NaN, rttMs: 1 }, { offsetMs: 0, rttMs: -1 },
+      { offsetMs: 99, rttMs: 20_000 }, { offsetMs: 20, rttMs: 40 },
+    ])).toEqual({ offsetMs: 20, rttMs: 40 });
+  });
 });
 
 describe("synchronizeClock", () => {
@@ -73,4 +80,36 @@ describe("synchronizeClock", () => {
     const estimate = await synchronizeClock(async () => Number.NaN, 2);
     expect(estimate).toBeNull();
   }, 10_000);
+
+  it("keeps useful rounds after an individual request fails", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    const monotonic = vi.spyOn(performance, "now").mockReturnValue(0);
+    try {
+      const ping = vi.fn().mockRejectedValueOnce(new Error("offline"))
+        .mockImplementation(async () => 1_000_100);
+      expect((await synchronizeClock(ping, 3))?.offsetMs).toBe(100);
+      expect(ping).toHaveBeenCalledTimes(3);
+    } finally {
+      now.mockRestore();
+      monotonic.mockRestore();
+    }
+  });
+
+  it("bounds a hung clock round and aborts its request", async () => {
+    vi.useFakeTimers();
+    try {
+      let signal: AbortSignal | undefined;
+      const task = synchronizeClock((value) => { signal = value; return new Promise<number>(() => {}); }, 1, { timeoutMs: 50 });
+      await vi.advanceTimersByTimeAsync(50);
+      expect(await task).toBeNull();
+      expect(signal?.aborted).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("stops sampling after session cancellation", async () => {
+    const controller = new AbortController(); controller.abort();
+    const ping = vi.fn(async () => Date.now());
+    expect(await synchronizeClock(ping, 4, { signal: controller.signal })).toBeNull();
+    expect(ping).not.toHaveBeenCalled();
+  });
 });

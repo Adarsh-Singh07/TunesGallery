@@ -18,7 +18,8 @@ import { supabase } from "../lib/supabase";
 import { getSession, getProfile, signOut, authedFetch, type Profile, type TrackRow } from "../lib/auth";
 import { useJam } from "../lib/jam/useJam";
 
-import { usePlayback, type PlaybackControls } from "../lib/playback/usePlayback";
+import type { PlaybackControls } from "../lib/playback/usePlayback";
+import { usePlayer } from "./PlaybackContext";
 import type { PlaybackManager } from "../lib/playback/PlaybackManager";
 import {
   markSessionEntered,
@@ -81,8 +82,6 @@ function trackToSong(t: TrackRow): Song {
 
 export default function MusicRoom() {
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
   const [chatOpen, setChatOpen] = useState(false);
   const [jamOpen, setJamOpen] = useState(false);
   const [hasEntered, setHasEntered]           = useState(false);
@@ -102,7 +101,7 @@ export default function MusicRoom() {
   const [r2Songs, setR2Songs] = useState<Song[]>([]);
   const allSongs = useMemo(() => [...baseSongs, ...r2Songs], [r2Songs]);
 
-  const { state, controls, manager } = usePlayback(baseSongs);
+  const { state, controls, manager } = usePlayer();
   const managerRef = useRef<PlaybackManager | null>(null);
   managerRef.current = manager;
   const getManager = useCallback(() => managerRef.current, []);
@@ -113,7 +112,7 @@ export default function MusicRoom() {
   const jamPlaying = jam.jamState?.state?.playbackState === "playing";
 
   // Derive current song
-  const song = allSongs[state.currentIndex] ?? null;
+  const song = manager?.currentSong ?? allSongs[state.currentIndex] ?? null;
 
   const [listeners, setListeners] = useState(1);
 
@@ -231,7 +230,7 @@ export default function MusicRoom() {
     if (!manualThemeId && song) {
       setActiveTheme(getThemeForSong(song.id));
     }
-  }, [song?.id, manualThemeId]);
+  }, [song, manualThemeId]);
 
   useEffect(() => {
     // Service Worker for PWA
@@ -239,15 +238,6 @@ export default function MusicRoom() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, []);
-
-  // Background play hack to keep OS from freezing iframe audio
-  useEffect(() => {
-    if (state.isPlaying && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    } else if (!state.isPlaying && audioRef.current) {
-      audioRef.current.pause();
-    }
-  }, [state.isPlaying]);
 
   // Update theme when manual selection changes
   useEffect(() => {
@@ -267,7 +257,7 @@ export default function MusicRoom() {
         });
       });
     }
-  }, [jamActive, hasEntered, song?.id, state.currentTime, state.activeProvider, state.isPlaying]);
+  }, [jamActive, hasEntered, song, state.currentTime, state.activeProvider, state.isPlaying]);
 
   // Derived quote
   const quote = song ? getQuoteForSong(song.id, activeTheme.id) : null;
@@ -562,9 +552,6 @@ export default function MusicRoom() {
                 errorMessage={state.errorMessage}
                 controls={effectiveControls}
                 onPlayAction={() => {
-                  if (audioRef.current && !state.isPlaying) {
-                    audioRef.current.play().catch(() => {});
-                  }
                 }}
               />
 
@@ -673,9 +660,6 @@ export default function MusicRoom() {
               errorMessage={state.errorMessage}
               controls={effectiveControls}
               onPlayAction={() => {
-                if (audioRef.current && !state.isPlaying) {
-                  audioRef.current.play().catch(() => {});
-                }
               }}
             />
           </div>
@@ -756,7 +740,6 @@ export default function MusicRoom() {
         )}
       </AnimatePresence>
 
-      <audio ref={audioRef} src="/silence.wav" loop playsInline muted={false} style={{ display: 'none' }} />
     </main>
   );
 }

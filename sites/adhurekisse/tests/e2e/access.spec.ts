@@ -1,71 +1,36 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Access-control E2E: invitation expiry, room-full denial, playback denial
-// for tracks without a grant. Requires a live seeded environment.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { expect, test } from "@playwright/test";
+import { enterMusicRoom, hostedSkipReason, missingHostedEnv, openJam, signIn } from "./helpers";
 
-const seeded = !!(process.env.E2E_SUPABASE_URL && process.env.E2E_GUEST_EMAIL);
-test.skip(!seeded, "E2E environment variables not set");
+test.skip(missingHostedEnv.length > 0, hostedSkipReason);
 
-test.describe("access control", () => {
-  test("uninvited email cannot request a sign-in code", async ({ page }) => {
-    await page.goto("/login");
-    await page.getByLabel("Your email").fill("stranger-not-invited@example.com");
-    await page.getByRole("button", { name: /send sign-in code/i }).click();
-    await expect(page.getByText(/hasn't been invited|not allowed/i)).toBeVisible({
-      timeout: 15_000,
-    });
-  });
-
-  test("signed-in user without a grant cannot stream a restricted track", async ({
-    request,
-  }) => {
-    // RLS + the stream endpoint must answer 404 (not leak a URL)
-    const res = await request.get("/api/tracks/00000000-0000-4000-8000-000000000000/stream", {
-      headers: storageHeader(),
-    });
-    expect([401, 404]).toContain(res.status());
-    const body = await res.json().catch(() => ({}));
-    expect(JSON.stringify(body)).not.toMatch(/url/i);
-  });
-
-  test("joining with an invalid code fails cleanly", async ({ page }) => {
-    await page.goto("/?jam=ZZZZZZ");
-    await page.getByRole("button", { name: "Enter the music room" }).click();
-    // the auto-join attempt surfaces an error in the jam panel
-    await page.getByRole("button", { name: "Jam together" }).click();
-    await expect(
-      page.getByText(/no open room with that code|may have expired/i),
-    ).toBeVisible({ timeout: 15_000 });
-  });
+test("an unauthenticated caller cannot obtain a stream URL", async ({ request }) => {
+  const response = await request.get("/api/tracks/00000000-0000-4000-8000-000000000000/stream");
+  expect(response.status()).toBe(401);
+  expect(response.headers()["cache-control"]).toContain("no-store");
+  expect(await response.json()).toHaveProperty("error");
+  expect(await response.text()).not.toMatch(/https?:|X-Amz|audio_key/i);
 });
 
-/**
- * The request fixture carries no Supabase session; attach the guest's access
- * token from the storage state so the API sees an authenticated-but-ungranted
- * user (the interesting denial case).
- */
-function storageHeader(): Record<string, string> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const fs = require("node:fs") as typeof import("node:fs");
-    const state = JSON.parse(
-      fs.readFileSync("tests/e2e/.auth-guest.json", "utf8"),
-    ) as { origins: { localStorage: { name: string; value: string }[] }[] };
-    for (const origin of state.origins ?? []) {
-      for (const entry of origin.localStorage ?? []) {
-        if (entry.name.endsWith("-auth-token")) {
-          const parsed = JSON.parse(entry.value) as {
-            currentSession?: { access_token?: string };
-          };
-          const token = parsed.currentSession?.access_token;
-          if (token) return { Authorization: `Bearer ${token}` };
-        }
-      }
-    }
-  } catch {
-    /* fall through to unauthenticated request */
-  }
-  return {};
-}
+test("an authenticated guest receives a clean invalid-invitation error", async ({ page }) => {
+  await signIn(page, "GUEST");
+  await enterMusicRoom(page);
+  const panel = await openJam(page);
+  await panel.getByLabel("Six-character room code").fill("ZZZZZZ");
+  await panel.getByRole("button", { name: "Join", exact: true }).click();
+  await expect(panel.getByRole("alert")).toContainText("No open room with that code");
+  await expect(panel.getByText("Together, live", { exact: true })).not.toBeVisible();
+});
+
+test("a signed-in guest cannot retrieve an inaccessible track", async ({ page }) => {
+  test.skip(!process.env.E2E_RESTRICTED_TRACK_ID, "Requires E2E_RESTRICTED_TRACK_ID: an existing track not granted to the guest");
+  await signIn(page, "GUEST");
+  const result = await page.evaluate(async (id) => {
+    const entry = Object.keys(localStorage).find((key) => /^sb-.*-auth-token$/.test(key));
+    const session = entry ? JSON.parse(localStorage.getItem(entry)!) : null;
+    if (!session?.access_token) throw new Error("Authenticated session missing");
+    const response = await fetch(`/api/tracks/${id}/stream`, { headers: { Authorization: `Bearer ${session.access_token}` } });
+    return { status: response.status, body: await response.text() };
+  }, process.env.E2E_RESTRICTED_TRACK_ID!);
+  expect(result.status).toBe(404);
+  expect(result.body).not.toMatch(/https?:|X-Amz|audio_key/i);
+});

@@ -1,117 +1,41 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// The two-phone Jam flow, end to end, in two independent browser contexts.
-// Requires a live seeded environment (see playwright.config.ts header).
-// Skips itself when the environment isn't provided.
-// ─────────────────────────────────────────────────────────────────────────────
+import { expect, test } from "@playwright/test";
+import { enterMusicRoom, hostedSkipReason, missingHostedEnv, observeAudio, openJam, roomCode, signIn } from "./helpers";
+import { exerciseJam } from "./jam-flow";
 
-import { expect, test, type Page } from "@playwright/test";
+test.skip(missingHostedEnv.length > 0, hostedSkipReason);
 
-const seeded = !!(
-  process.env.E2E_SUPABASE_URL &&
-  process.env.E2E_HOST_EMAIL &&
-  process.env.E2E_TEST_TRACK_TITLE
-);
-test.skip(!seeded, "E2E environment variables not set — jam flow needs a live seeded stack");
+test("host and guest complete a real hosted synchronized Jam session", async ({ browser }, testInfo) => {
+  test.setTimeout(240_000);
+  const host = await browser.newContext({ baseURL: process.env.E2E_BASE_URL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const guest = await browser.newContext({ baseURL: process.env.E2E_BASE_URL, viewport: { width: 430, height: 932 }, isMobile: true, hasTouch: true });
+  const hostPage = await host.newPage();
+  const guestPage = await guest.newPage();
+  try {
+    await Promise.all([observeAudio(hostPage), observeAudio(guestPage)]);
+    await Promise.all([signIn(hostPage, "HOST"), signIn(guestPage, "GUEST")]);
+    await exerciseJam(hostPage, guestPage, guest, process.env.E2E_TEST_TRACK_TITLE!, process.env.E2E_SECOND_TRACK_TITLE!, testInfo);
+  } finally {
+    await Promise.all([host.close(), guest.close()]);
+  }
+});
 
-const TRACK = process.env.E2E_TEST_TRACK_TITLE ?? "";
-
-async function enterRoom(page: Page) {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Enter the music room" }).click();
-  await expect(page.getByRole("button", { name: /play/i }).first()).toBeEnabled();
-}
-
-test.describe("jam together — host + guest", () => {
-  let hostCode = "";
-
-  test("host creates a room and shares the code", async ({ browser }) => {
-    const host = await browser.newContext({
-      storageState: "tests/e2e/.auth-host.json",
-    });
-    const hostPage = await host.newPage();
-    await enterRoom(hostPage);
-
-    await hostPage.getByRole("button", { name: "Jam together" }).click();
-    await hostPage.getByRole("button", { name: "Create a private room" }).click();
-    await expect(hostPage.getByText(/room code/i)).toBeVisible();
-
-    const codeText = await hostPage.locator(".jam-panel-backdrop").textContent();
-    hostCode = codeText?.match(/[A-Z0-9]{6}/)?.[0] ?? "";
-    expect(hostCode).toHaveLength(6);
-    await host.close();
-  });
-
-  test("guest joins via invite link, both preload and start together", async ({ browser }) => {
-    test.fail(true, "Depends on the room created in the previous test — run serially");
-    void browser;
-  });
-
-  test("full synchronized session", async ({ browser }) => {
-    test.setTimeout(180_000);
-    const hostCtx = await browser.newContext({ storageState: "tests/e2e/.auth-host.json" });
-    const guestCtx = await browser.newContext({ storageState: "tests/e2e/.auth-guest.json" });
-    const hostPage = await hostCtx.newPage();
-    const guestPage = await guestCtx.newPage();
-
-    await enterRoom(hostPage);
-    await enterRoom(guestPage);
-
-    // 1–3. host creates the room
-    await hostPage.getByRole("button", { name: "Jam together" }).click();
-    await hostPage.getByRole("button", { name: "Create a private room" }).click();
-    await expect(hostPage.getByText(/room code/i)).toBeVisible();
-    const panelText = await hostPage.locator(".jam-panel-backdrop").textContent();
-    hostCode = panelText?.match(/[A-Z0-9]{6}/)?.[0] ?? "";
-    expect(hostCode).toHaveLength(6);
-
-    // 4. guest joins with the code
-    await guestPage.getByRole("button", { name: "Jam together" }).click();
-    await guestPage.getByRole("textbox", { name: "Room code" }).fill(hostCode);
-    await guestPage.getByRole("button", { name: "Join", exact: true }).click();
-    await expect(hostPage.getByText(/LIVE/i)).toBeVisible();
-    await expect(guestPage.getByText(/LIVE/i)).toBeVisible();
-
-    // 5–7. host queues the shared test track and starts it
-    await hostPage.getByRole("button", { name: "Close jam panel" }).click();
-    await hostPage.getByRole("button", { name: "Open Archive" }).click();
-    await hostPage.getByRole("button", { name: new RegExp(TRACK, "i") }).first().click();
-    await hostPage.getByRole("button", { name: "Jam together" }).click();
-
-    // 8–11. playback starts on both devices against the shared timeline
-    await expect(guestPage.getByText(new RegExp(TRACK, "i"))).toBeVisible({ timeout: 30_000 });
-
-    // 12. host pauses → both pause
-    await hostPage.getByRole("button", { name: "Pause for both" }).click();
-    await expect(guestPage.getByRole("button", { name: "Play for both" })).toBeVisible();
-
-    // 13–14. host resumes
-    await hostPage.getByRole("button", { name: "Play for both" }).click();
-    await expect(guestPage.getByRole("button", { name: "Pause for both" })).toBeVisible();
-
-    // 15–18. guest's connection drops and recovers from authoritative state
-    await guestCtx.setOffline(true);
-    await expect(guestPage.getByText(/reconnecting/i)).toBeVisible({ timeout: 30_000 });
-    await guestCtx.setOffline(false);
-    await expect(guestPage.getByText(/LIVE/i)).toBeVisible({ timeout: 60_000 });
-
-    // 19. host ends the room
-    await hostPage.getByRole("button", { name: "End room" }).click();
-    await expect(guestPage.getByText(/room has ended/i)).toBeVisible({ timeout: 30_000 });
-
-    // 20. both clients clean up — panels close, playback continues solo
-    await guestPage.getByRole("button", { name: "Close jam panel" }).click();
-    await hostPage.getByRole("button", { name: "Close jam panel" }).click();
-
-    await hostCtx.close();
-    await guestCtx.close();
-  });
-
-  test("a third phone cannot join a full room", async ({ browser }) => {
-    if (!hostCode) test.skip(true, "no prior room");
-    const third = await browser.newContext();
-    const page = await third.newPage();
-    await page.goto("/login");
-    void page; // denial flows covered in access.spec.ts against seeded rooms
-    await third.close();
-  });
+test("a third invited account is refused while both room seats are occupied", async ({ browser }) => {
+  test.skip(!process.env.E2E_THIRD_EMAIL || !process.env.E2E_THIRD_PASSWORD, "Room-full hosted acceptance additionally requires E2E_THIRD_EMAIL and E2E_THIRD_PASSWORD");
+  const contexts = await Promise.all(["host", "guest", "third"].map(() => browser.newContext({ baseURL: process.env.E2E_BASE_URL })));
+  try {
+    const [host, guest, third] = await Promise.all(contexts.map((context) => context.newPage()));
+    await Promise.all([signIn(host, "HOST"), signIn(guest, "GUEST"), signIn(third, "THIRD")]);
+    await Promise.all([enterMusicRoom(host), enterMusicRoom(guest), enterMusicRoom(third)]);
+    await openJam(host);
+    await host.getByRole("button", { name: "Create a private room" }).click();
+    const code = await roomCode(host);
+    for (const page of [guest, third]) {
+      await openJam(page);
+      await page.getByLabel("Six-character room code").fill(code);
+      await page.getByRole("button", { name: "Join", exact: true }).click();
+      if (page === guest) await expect(guest.getByRole("dialog", { name: "Jam together" }).getByRole("status")).toHaveText("Together, live");
+    }
+    await expect(third.getByRole("alert")).toContainText("already has two listeners");
+    await host.getByRole("button", { name: "End room", exact: true }).click();
+  } finally { await Promise.all(contexts.map((context) => context.close())); }
 });

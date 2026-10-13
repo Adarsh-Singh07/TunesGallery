@@ -3,6 +3,19 @@ node_modules
 .vercel
 .env
 .env.local
+.env.*
+!.env.example
 .DS_Store
 *.log
 .browser-test/
+
+# Browser sessions, test recordings/reports and generated test-only media
+**/tests/e2e/.auth-*.json
+**/tests/e2e/.auth/
+**/playwright/.auth/
+**/storage-state*.json
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/coverage/
+**/.test-fixtures/

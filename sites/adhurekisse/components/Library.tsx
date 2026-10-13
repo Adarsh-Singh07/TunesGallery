@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { ArrowUpRight, X } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import type { Song } from "../data/songs";
 import SearchBox from "./SearchBox";
+import styles from "./private-library/archive.module.css";
 
 interface Props {
   songs: Song[];
@@ -23,6 +25,15 @@ export default function Library({
   onClose,
 }: Props) {
   const [query, setQuery] = useState("");
+  const panel = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    panel.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    return () => previous?.focus();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -36,14 +47,24 @@ export default function Library({
 
   return (
     <motion.aside
+      ref={panel}
       className="library-panel"
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
-      transition={{ duration: 0.40, ease: [0.32, 0.72, 0, 1] }}
+      transition={{ duration: reducedMotion ? 0 : 0.40, ease: [0.32, 0.72, 0, 1] }}
       aria-label="Song archive"
       role="dialog"
       aria-modal="true"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") { event.preventDefault(); close.current(); }
+        if (event.key !== "Tab") return;
+        const elements = panel.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled)');
+        if (!elements?.length) return;
+        const first = elements[0]; const last = elements[elements.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }}
     >
       {/* Header */}
       <div className="library-header">
@@ -63,8 +84,12 @@ export default function Library({
       {/* Search */}
       <SearchBox value={query} onChange={setQuery} />
 
+      <Link href="/library" className={styles.privateLink} onClick={onClose}>
+        <span>Your private tracks & playlists</span><ArrowUpRight size={16} aria-hidden="true" />
+      </Link>
+
       {/* Song list */}
-      <div className="library-list" role="listbox" aria-label="Songs">
+      <div className="library-list" aria-label="Songs">
         {filtered.length === 0 ? (
           <p className="library-empty">No songs match &ldquo;{query}&rdquo;</p>
         ) : (
@@ -74,8 +99,7 @@ export default function Library({
             return (
               <button
                 key={song.id}
-                role="option"
-                aria-selected={isActive}
+                 aria-current={isActive ? "true" : undefined}
                 className={`library-row ${isActive ? "library-row-active" : ""}`}
                 onClick={() => {
                   onSelect(realIndex);

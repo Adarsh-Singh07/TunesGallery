@@ -1,0 +1,134 @@
+name: Adhure Kisse CI
+
+on:
+  push:
+    paths:
+      - 'sites/adhurekisse/**'
+      - 'docs/ADHUREKISSE-*.md'
+      - 'docs/ANDROID-TEST-MATRIX.md'
+      - '.github/workflows/adhurekisse-ci.yml'
+      - '.gitignore'
+  pull_request:
+    paths:
+      - 'sites/adhurekisse/**'
+      - 'docs/ADHUREKISSE-*.md'
+      - 'docs/ANDROID-TEST-MATRIX.md'
+      - '.github/workflows/adhurekisse-ci.yml'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adhurekisse-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: sites/adhurekisse
+
+# Deliberately fake settings; no hosted credentials or existing env files.
+env:
+  CI: 'true'
+  NEXT_TELEMETRY_DISABLED: '1'
+  NEXT_PUBLIC_SUPABASE_URL: 'https://ci.invalid'
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'placeholder_public_anon_key'
+
+jobs:
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sites/adhurekisse/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  quality:
+    name: Linux ${{ matrix.check }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [typecheck, lint, test, build]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sites/adhurekisse/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        if: matrix.check == 'typecheck'
+        run: npm run typecheck -- --incremental false
+      - name: Noninteractive lint
+        if: matrix.check == 'lint'
+        run: npm run lint
+      - name: Unit tests
+        if: matrix.check == 'test'
+        run: npm test
+      - name: Server boundary tests
+        if: matrix.check == 'test'
+        run: npm exec -- vitest run --config tests/server/vitest.config.ts
+      - name: Offline AWS presign tests
+        if: matrix.check == 'test'
+        run: node --test tests/server/presign.test.mjs
+      - name: Production build
+        if: matrix.check == 'build'
+        run: npm run build
+
+  database:
+    name: Offline migration and RLS tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install isolated SQL test runtime
+        run: |
+          test -d "$RUNNER_TEMP"
+          npm install --prefix "$RUNNER_TEMP/adhurekisse-sql-tests" --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.8
+      - name: Execute all forward migrations and security scenarios
+        run: PGLITE_ROOT="$RUNNER_TEMP/adhurekisse-sql-tests/node_modules/@electric-sql/pglite" node --test tests/server/database.test.mjs
+
+  e2e-local:
+    name: Local browser acceptance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sites/adhurekisse/package-lock.json
+      - name: Require QA-owned local test contract
+        run: |
+          node -e 'const p = require("./package.json"); if (!p.scripts?.["test:e2e:local"]) { console.error("QA integration required: add test:e2e:local with isolated loopback fixtures. See docs/ADHUREKISSE-OPERATIONS.md at repo root."); process.exit(1); }'
+      - run: npm ci
+      - run: npm exec -- playwright install --with-deps chromium
+      - name: Run local-only E2E (never the hosted suite)
+        env:
+          QA_STAGE_PARENT: ${{ runner.temp }}
+          QA_OUTPUT_DIR: ${{ runner.temp }}/adhurekisse-local-results
+          QA_REPORT: ${{ runner.temp }}/adhurekisse-local-report.json
+        run: npm run test:e2e:local

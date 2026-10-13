@@ -36,6 +36,7 @@ export class R2AudioProvider implements PlaybackProvider {
   private lastRefreshAt = 0;
   private recovering = false;
   private destroyed = false;
+  private loadGeneration = 0;
 
   get isReady() {
     return this._isReady;
@@ -106,9 +107,11 @@ export class R2AudioProvider implements PlaybackProvider {
     });
 
     const previousTrack = this.trackId;
+    const generation = ++this.loadGeneration;
     this.trackId = trackRef;
 
     const stream = await this.fetchStreamUrl(trackRef);
+    if (generation !== this.loadGeneration || this.destroyed) return;
     this.streamUrl = stream.url;
     this.streamExpiresAt = stream.expiresAt;
     this.lastRefreshAt = Date.now();
@@ -184,15 +187,20 @@ export class R2AudioProvider implements PlaybackProvider {
   /** Preload the stream (fetch URL + buffer) without audible playback. */
   async cue(trackRef: string): Promise<void> {
     if (!this.audio) return;
+    const generation = ++this.loadGeneration;
     try {
       const stream = await this.fetchStreamUrl(trackRef);
+      if (generation !== this.loadGeneration || this.destroyed) return;
       this.streamUrl = stream.url;
       this.streamExpiresAt = stream.expiresAt;
       this.lastRefreshAt = Date.now();
       this.trackId = trackRef;
       this.audio.src = stream.url;
       this.audio.load();
-      this.patch({ isLoading: false, hasError: false, errorMessage: "", currentTime: 0 });
+      this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });
+      await this.waitForPlayable(generation);
+      if (generation !== this.loadGeneration || this.destroyed) return;
+      this.patch({ isLoading: false, hasError: false, errorMessage: "" });
     } catch (err) {
       this.patch({
         hasError: true,
@@ -217,6 +225,7 @@ export class R2AudioProvider implements PlaybackProvider {
 
   destroy(): void {
     this.destroyed = true;
+    this.loadGeneration += 1;
     if (this.audio) {
       this.audio.pause();
       this.audio.removeAttribute("src");
@@ -317,6 +326,42 @@ export class R2AudioProvider implements PlaybackProvider {
       errorMessage: wasPlaying
         ? "Playback was interrupted and could not recover. Check your connection."
         : "This audio file could not be loaded.",
+    });
+  }
+
+  private waitForPlayable(generation: number): Promise<void> {
+    const audio = this.audio;
+    if (!audio) return Promise.reject(new Error("Audio element is unavailable."));
+    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA && Number.isFinite(audio.duration) && audio.duration > 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timeout = window.setTimeout(() => finish(new Error("The audio file did not become ready in time.")), 15_000);
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        audio.removeEventListener("canplay", onReady);
+        audio.removeEventListener("loadedmetadata", onMetadata);
+        audio.removeEventListener("error", onError);
+      };
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve();
+      };
+      const onReady = () => {
+        if (generation !== this.loadGeneration) finish(new Error("Audio preload was superseded."));
+        else finish();
+      };
+      const onMetadata = () => {
+        if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA && Number.isFinite(audio.duration) && audio.duration > 0) onReady();
+      };
+      const onError = () => finish(new Error("This audio file could not be loaded."));
+      audio.addEventListener("canplay", onReady, { once: true });
+      audio.addEventListener("loadedmetadata", onMetadata);
+      audio.addEventListener("error", onError, { once: true });
     });
   }
 
