@@ -20,7 +20,7 @@ const Record = memo(function Record({
   isPlaying,
 }: Props) {
   return (
-    <div className="record-scene" aria-label="Vinyl record">
+    <div className="record-scene" role="img" aria-label="Vinyl record">
       {/* Drop shadow */}
       <div className="record-shadow" />
 
