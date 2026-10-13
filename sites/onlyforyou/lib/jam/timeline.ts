@@ -39,12 +39,13 @@ export function clientToServerMs(clientNow: number, offsetMs: number): number {
 /**
  * Expected playback position for a given server epoch. While playing, the
  * position advances in wall-clock time from the reference; otherwise it is
- * frozen. Clamps at 0 — a scheduled future start yields 0.
+ * frozen. A future start holds its reference position (including nonzero seeks).
  */
 export function expectedPosition(timeline: TimelineState, serverNowMs: number): number {
-  if (timeline.playbackState !== "playing") return timeline.positionSeconds;
-  const elapsedSec = (serverNowMs - timeline.updatedAt) / 1000;
-  return Math.max(0, timeline.positionSeconds + elapsedSec);
+  const position = Number.isFinite(timeline.positionSeconds) ? Math.max(0, timeline.positionSeconds) : 0;
+  if (timeline.playbackState !== "playing") return position;
+  const elapsedSec = Math.max(0, (serverNowMs - timeline.updatedAt) / 1000);
+  return position + (Number.isFinite(elapsedSec) ? elapsedSec : 0);
 }
 
 /** Drift of a device relative to the shared timeline, in ms (positive = behind). */
@@ -65,8 +66,9 @@ export function classifyDrift(
   thresholds: DriftThresholds = DEFAULT_DRIFT_THRESHOLDS,
 ): Correction {
   const abs = Math.abs(drift);
+  if (!Number.isFinite(abs)) return "none";
   if (abs < thresholds.none) return "none";
-  if (abs <= thresholds.nudge) return "nudge";
+  if (abs <= Math.max(thresholds.nudge, thresholds.seek)) return "nudge";
   return "seek";
 }
 
@@ -75,12 +77,29 @@ export function classifyDrift(
  → slightly faster. Kept within ±3% so pitch stays inaudibly unaffected.
  */
 export function nudgeRate(drift: number, maxRateDelta = 0.03): number {
+  if (!Number.isFinite(drift)) return 1;
   const rate = 1 + (drift / 1000) * 0.25;
   return Math.min(1 + maxRateDelta, Math.max(1 - maxRateDelta, rate));
 }
 
 /** Drift small enough to stop nudging and return to rate 1.0. */
 export const NUDGE_SETTLE_MS = 40;
+
+/** Network uncertainty widens the deadband instead of chasing noisy estimates. */
+export function adaptiveThresholds(
+  base: DriftThresholds = DEFAULT_DRIFT_THRESHOLDS,
+  rttMs = 0,
+): DriftThresholds {
+  const uncertainty = Math.min(500, Math.max(0, Number.isFinite(rttMs) ? rttMs / 2 : 0));
+  return {
+    none: base.none + uncertainty,
+    nudge: base.nudge + uncertainty,
+    seek: Math.max(base.seek, base.nudge) + uncertainty * 2,
+  };
+}
+
+export const SEEK_COOLDOWN_MS = 8_000;
+export const NUDGE_MAX_MS = 10_000;
 
 /**
  * The scheduled instant a synchronized start should begin, expressed in

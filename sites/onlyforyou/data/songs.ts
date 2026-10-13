@@ -6,6 +6,8 @@ export interface Song {
   artist: string;
   album?: string;
   year?: string;
+  movie?: string;
+  tags?: string[];
   artwork: {
     cover: string;
   };

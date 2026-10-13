@@ -1,87 +1,33 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// /api/tracks/[id]/finalize — verify the object really exists in R2 (HEAD)
-// and mark the track ready. Duration (client-extracted) may be supplied.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { requireUser, unauthorized, forbidden } from "../../../../../lib/server/auth";
-import { isR2Configured, objectExists, MAX_AUDIO_BYTES, MAX_ARTWORK_BYTES } from "../../../../../lib/server/r2";
+import { serviceClient } from "../../../../../lib/server/auth";
+import { api, ApiError, bodyJson, dbError, duration, json, uuid } from "../../../../../lib/server/http";
+import { mutateTrack, storageRequired } from "../../../../../lib/server/library";
+import { verifyUpload } from "../../../../../lib/server/r2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
 type Params = { params: Promise<{ id: string }> };
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request, { params }: Params) {
-  const auth = await requireUser(req);
-  if (!auth) return unauthorized();
-  if (!auth.isAdmin) return forbidden("Only the library owner can finalize uploads");
-  if (!isR2Configured()) {
-    return Response.json({ error: "R2 storage is not configured" }, { status: 503 });
-  }
-
-  const { id } = await params;
-  if (!UUID_RE.test(id)) return Response.json({ error: "Invalid id" }, { status: 400 });
-
-  let body: { kind?: string; durationSeconds?: number } = {};
-  try {
-    body = await req.json();
-  } catch {
-    // body optional
-  }
-  const kind = body.kind === "artwork" ? "artwork" : "audio";
-
-  const { data: track } = await auth.db
-    .from("tracks")
-    .select("id, audio_key, artwork_key, status")
-    .eq("id", id)
-    .single();
-  if (!track) return Response.json({ error: "Track not found" }, { status: 404 });
-
-  if (kind === "audio") {
-    if (!track.audio_key) return Response.json({ error: "Track has no audio key" }, { status: 409 });
-
-    const head = await objectExists(track.audio_key);
-    if (!head.exists) {
-      await auth.db.from("tracks").update({ status: "failed" }).eq("id", id);
-      return Response.json({ error: "Audio object not found in storage" }, { status: 412 });
+  return api(req, "upload", true, async (auth) => {
+    storageRequired();
+    const id = uuid((await params).id);
+    const body = await bodyJson(req, true);
+    if (body.kind !== undefined && body.kind !== "audio" && body.kind !== "artwork") throw new ApiError(400, "Invalid upload kind");
+    const kind = body.kind === "artwork" ? "artwork" : "audio";
+    const durationSeconds = body.durationSeconds == null ? undefined : duration(body.durationSeconds);
+    // uploadId identifies retries exactly. Older clients may finalize their
+    // latest intent of this kind; never accept an object key from the browser.
+    let query = serviceClient().from("upload_intents").select("*").eq("track_id", id).eq("kind", kind);
+    if (body.uploadId !== undefined) query = query.eq("id", uuid(body.uploadId));
+    const { data: intent, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+    dbError(error);
+    if (!intent) throw new ApiError(404, "Upload not found");
+    if (intent.finalized_at) {
+      return json({ track: await mutateTrack(auth, "finalize", id, { uploadId: intent.id }) });
     }
-    if ((head.size ?? 0) > MAX_AUDIO_BYTES) {
-      await auth.db.from("tracks").update({ status: "failed" }).eq("id", id);
-      return Response.json({ error: "Audio object exceeds size limit" }, { status: 413 });
-    }
-
-    const patch: Record<string, unknown> = {
-      status: "ready",
-      size_bytes: head.size ?? null,
-    };
-    if (typeof body.durationSeconds === "number" && body.durationSeconds > 0) {
-      patch.duration_seconds = body.durationSeconds;
-    }
-    const { data: updated, error } = await auth.db
-      .from("tracks")
-      .update(patch)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({ track: updated });
-  }
-
-  // artwork finalize
-  if (!track.artwork_key) return Response.json({ error: "Track has no artwork key" }, { status: 409 });
-  const head = await objectExists(track.artwork_key);
-  if (!head.exists) return Response.json({ error: "Artwork object not found in storage" }, { status: 412 });
-  if ((head.size ?? 0) > MAX_ARTWORK_BYTES) {
-    return Response.json({ error: "Artwork object exceeds size limit" }, { status: 413 });
-  }
-
-  const { data: updated, error } = await auth.db
-    .from("tracks")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ track: updated });
+    if (Date.parse(intent.expires_at) < Date.now()) throw new ApiError(410, "UPLOAD_EXPIRED");
+    const verified = await verifyUpload(intent);
+    const track = await mutateTrack(auth, "finalize", id, { uploadId: intent.id, ...verified, durationSeconds });
+    return json({ track });
+  });
 }

@@ -1,71 +1,46 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// /api/invitations — admin-only invitation management.
-// Invitations create a join code + expiry; the invited person then signs in
-// with an email OTP on /login. Invitation ≠ library access: tracks are still
-// granted individually via /api/permissions.
-// ─────────────────────────────────────────────────────────────────────────────
-
-import { requireUser, unauthorized, forbidden } from "../../../lib/server/auth";
+import { serviceClient } from "../../../lib/server/auth";
+import { api, ApiError, bodyJson, dbError, json, text, uuid } from "../../../lib/server/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export async function GET(req: Request) {
-  const auth = await requireUser(req);
-  if (!auth) return unauthorized();
-  if (!auth.isAdmin) return forbidden();
-
-  const { data, error } = await auth.db
-    .from("invitations")
-    .select("id, email, code, expires_at, accepted_at, created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ invitations: data ?? [] });
+  return api(req, "read", true, async (auth) => {
+    const { data, error } = await auth.db.from("invitations")
+      .select("id,email,code,expires_at,accepted_at,accepted_user_id,revoked_at,created_at")
+      .order("created_at", { ascending: false }).limit(100);
+    dbError(error);
+    return json({ invitations: data ?? [] });
+  });
 }
 
 export async function POST(req: Request) {
-  const auth = await requireUser(req);
-  if (!auth) return unauthorized();
-  if (!auth.isAdmin) return forbidden();
-
-  let body: { email?: string; expiresInDays?: number };
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const email = (body.email ?? "").trim().toLowerCase();
-  if (!EMAIL_RE.test(email) || email.length > 254) {
-    return Response.json({ error: "A valid email address is required" }, { status: 400 });
-  }
-
-  const days = Math.min(Math.max(body.expiresInDays ?? 14, 1), 30);
-  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data, error } = await auth.db
-    .from("invitations")
-    .insert({ email, invited_by: auth.userId, expires_at: expiresAt })
-    .select("id, email, code, expires_at")
-    .single();
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ invitation: data }, { status: 201 });
+  return api(req, "invitation", true, async (auth) => {
+    const body = await bodyJson(req);
+    const email = text(body.email, 254, true).toLowerCase();
+    const days = body.expiresInDays ?? 14;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 30) {
+      throw new ApiError(400, "Invalid invitation");
+    }
+    const { data, error } = await auth.db.rpc("manage_invitation", { p_action: "create", p_email: email, p_days: days });
+    dbError(error);
+    // DB invitation is authoritative. Auth's email delivery is a separate
+    // service; keep the record retryable and accurately report delivery status.
+    let delivery: "sent" | "existing_account" | "pending" = "pending";
+    try {
+      const result = await serviceClient().auth.admin.inviteUserByEmail(email);
+      delivery = !result.error ? "sent" : result.error.code === "email_exists" || result.error.code === "user_already_exists" ? "existing_account" : "pending";
+    } catch { /* no provider diagnostics or credentials in the response */ }
+    return json({ invitation: data, delivery }, 201);
+  });
 }
 
 export async function DELETE(req: Request) {
-  const auth = await requireUser(req);
-  if (!auth) return unauthorized();
-  if (!auth.isAdmin) return forbidden();
-
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id") ?? "";
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!UUID_RE.test(id)) return Response.json({ error: "id is required" }, { status: 400 });
-
-  const { error } = await auth.db.from("invitations").delete().eq("id", id);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ ok: true });
+  return api(req, "invitation", true, async (auth) => {
+    const { error } = await auth.db.rpc("manage_invitation", {
+      p_action: "revoke", p_id: uuid(new URL(req.url).searchParams.get("id")),
+    });
+    dbError(error);
+    return json({ ok: true });
+  });
 }

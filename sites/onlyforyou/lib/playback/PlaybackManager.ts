@@ -1,6 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// PlaybackManager — single source of truth for all playback state.
-// Simplified version for OnlyForYou (YouTube-only, no Spotify/chat).
+// PlaybackManager — the single source of truth for all playback state.
+//
+// Owns:
+//   • The curated song playlist + ordering (shuffle / repeat)
+//   • Which provider is active (YouTube / Spotify / Local)
+//   • Provider lifecycle (initialize on first use, swap on switch)
+//   • Forwarding UI commands → active provider
+//   • Forwarding provider events → React subscribers
+//
+// MusicRoom uses this class via the `usePlayback` React hook.
+// No component ever imports a concrete provider directly.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
@@ -8,39 +17,68 @@ import type {
   ManagerState,
   PlaybackProvider,
   ProviderId,
-  RepeatMode,
   ProviderState,
+  RepeatMode,
 } from "./types";
 import { DEFAULT_PROVIDER_STATE } from "./types";
 import type { Song } from "../../data/songs";
 import { R2AudioProvider } from "./R2AudioProvider";
 import { YouTubeProvider } from "./YouTubeProvider";
+import { SpotifyProvider } from "./SpotifyProvider";
+import { LocalAudioProvider } from "./LocalAudioProvider";
+import type { JamTransportHandlers } from "../jam/transport";
+import {
+  isSpotifyConnected,
+  buildSpotifyAuthUrl,
+  clearTokens,
+} from "../spotify/pkce";
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export class PlaybackManager {
+  // ── Playlist ──────────────────────────────────────────────────────────────
   private songs: Song[];
   private currentIndex = 0;
   private shuffleOrder: number[] = [];
 
+  // ── Playback modes ────────────────────────────────────────────────────────
   private _shuffle = false;
   private _repeat: RepeatMode = "none";
 
+  // ── Providers ─────────────────────────────────────────────────────────────
   private providers: Map<ProviderId, PlaybackProvider> = new Map();
   private _activeProviderId: ProviderId = "youtube";
   private providerUnsub: (() => void) | null = null;
   private providerEndedUnsub: (() => void) | null = null;
+  private transportHandlers: JamTransportHandlers | null = null;
 
+  // ── Spotify auth state ────────────────────────────────────────────────────
+  private _spotifyConnected = false;
+  private _spotifyConnecting = false;
+
+  // ── Provider audio state (forwarded from active provider) ─────────────────
   private _providerState: ProviderState = { ...DEFAULT_PROVIDER_STATE };
 
+  // ── Subscribers ───────────────────────────────────────────────────────────
   private listeners = new Set<ManagerListener>();
   private timeListeners = new Set<(time: number, duration: number) => void>();
 
+  // ─────────────────────────────────────────────────────────────────────────
+
   constructor(songs: Song[]) {
     this.songs = songs;
+    this._spotifyConnected = isSpotifyConnected();
     this.buildShuffleOrder();
-    // R2 private audio — preferred whenever a track has an authorized file
+
+    // Register providers — R2 private audio is registered first; selection
+    // still only prefers it when the selected song actually has an R2 file.
     this.providers.set("r2", new R2AudioProvider());
     this.providers.set("youtube", new YouTubeProvider());
+    this.providers.set("spotify", new SpotifyProvider());
+    this.providers.set("local", new LocalAudioProvider());
   }
+
+  // ── Public: dynamic library (R2 tracks arrive after login) ────────────────
 
   /** Replace the playlist (e.g. after fetching the private R2 library). */
   setSongs(songs: Song[]): void {
@@ -55,6 +93,8 @@ export class PlaybackManager {
     }
     this.notify();
   }
+
+  // ── Public: playlist ──────────────────────────────────────────────────────
 
   get currentSong(): Song | null {
     return this.songs[this.currentIndex] ?? null;
@@ -76,8 +116,9 @@ export class PlaybackManager {
     const song = this.currentSong;
     if (!song) return;
 
-    if (song.playback?.r2TrackId && this._activeProviderId !== "r2") {
-      await this.switchProvider("r2");
+    const desiredProvider = this.providerForSong(song);
+    if (desiredProvider !== this._activeProviderId) {
+      await this.switchProvider(desiredProvider, false);
     }
 
     try {
@@ -109,6 +150,7 @@ export class PlaybackManager {
     } else {
       this.currentIndex = (this.currentIndex + 1) % this.songs.length;
       if (this.currentIndex === 0 && this._repeat === "none") {
+        // Reached end of list — stop
         await this.pause();
         this.notify();
         return;
@@ -121,6 +163,7 @@ export class PlaybackManager {
 
   async previous(): Promise<void> {
     if (!this.songs.length) return;
+    // Restart track if more than 3 s in
     if (this._providerState.currentTime > 3) {
       await this.seek(0);
       return;
@@ -138,6 +181,8 @@ export class PlaybackManager {
     this.notify();
     await this.loadCurrentSong(true);
   }
+
+  // ── Public: playback controls ─────────────────────────────────────────────
 
   async togglePlay(): Promise<void> {
     const provider = this.activeProvider;
@@ -174,14 +219,39 @@ export class PlaybackManager {
     await this.activeProvider?.setMuted(muted);
   }
 
-  /** Switch to a different playback provider. Pauses current playback first. */
-  async switchProvider(id: ProviderId): Promise<void> {
+  async setRate(rate: number): Promise<void> {
+    await this.activeProvider?.setRate?.(rate);
+  }
+
+  toggleShuffle(): void {
+    this._shuffle = !this._shuffle;
+    this.buildShuffleOrder();
+    this.notify();
+  }
+
+  cycleRepeat(): void {
+    const modes: RepeatMode[] = ["none", "all", "one"];
+    const idx = modes.indexOf(this._repeat);
+    this._repeat = modes[(idx + 1) % modes.length];
+    this.notify();
+  }
+
+  // ── Public: provider switching ────────────────────────────────────────────
+
+  /**
+   * Switch to a different playback provider. The optional resume flag is used
+   * internally while cueing a Jam track: changing providers for a preload must
+   * never unexpectedly restart the previous song.
+   */
+  async switchProvider(id: ProviderId, resume = true): Promise<void> {
     if (id === this._activeProviderId) return;
 
-    const wasPlaying = this._providerState.isPlaying;
+    // Pause current provider
+    const wasPlaying = resume && this._providerState.isPlaying;
     const currentTime = this._providerState.currentTime;
     await this.activeProvider?.pause();
 
+    // Unsubscribe from old provider
     this.providerUnsub?.();
     this.providerEndedUnsub?.();
     this.providerUnsub = null;
@@ -191,6 +261,7 @@ export class PlaybackManager {
     this._providerState = { ...DEFAULT_PROVIDER_STATE, volume: this._providerState.volume };
     this.notify();
 
+    // Initialize new provider if needed and resume
     if (wasPlaying) {
       try {
         await this.ensureProviderReady();
@@ -210,38 +281,85 @@ export class PlaybackManager {
     }
   }
 
-  async setRate(rate: number): Promise<void> {
-    await this.activeProvider?.setRate?.(rate);
+  // ── Public: Spotify auth ──────────────────────────────────────────────────
+
+  async connectSpotify(): Promise<void> {
+    if (this._spotifyConnecting) return;
+    this._spotifyConnecting = true;
+    this.notify();
+    try {
+      const url = await buildSpotifyAuthUrl();
+      window.location.href = url;
+    } catch (err) {
+      this._spotifyConnecting = false;
+      this._providerState = {
+        ...this._providerState,
+        hasError: true,
+        errorMessage: err instanceof Error ? err.message : "Spotify not configured.",
+      };
+      this.notify();
+    }
   }
 
-  toggleShuffle(): void {
-    this._shuffle = !this._shuffle;
-    this.buildShuffleOrder();
+  markSpotifyConnected(connected: boolean): void {
+    this._spotifyConnected = connected;
     this.notify();
   }
 
-  cycleRepeat(): void {
-    const modes: RepeatMode[] = ["none", "all", "one"];
-    const idx = modes.indexOf(this._repeat);
-    this._repeat = modes[(idx + 1) % modes.length];
+  disconnectSpotify(): void {
+    clearTokens();
+    this._spotifyConnected = false;
+    if (this._activeProviderId === "spotify") {
+      void this.switchProvider("youtube");
+    }
     this.notify();
   }
+
+  /**
+   * Install a room-owned transport adapter. Media keys and natural track-end
+   * events are routed through this adapter while a Jam is active; direct
+   * provider operations remain available to JamSession for applying the
+   * authoritative timeline. A scoped disposer prevents an old room from
+   * clearing a newer room's handlers during asynchronous cleanup.
+   */
+  setTransportHandlers(handlers: JamTransportHandlers | null): () => void {
+    this.transportHandlers = handlers;
+    this.refreshMediaSessionActions();
+    let released = false;
+    return () => {
+      if (released || this.transportHandlers !== handlers) return;
+      released = true;
+      this.transportHandlers = null;
+      this.refreshMediaSessionActions();
+    };
+  }
+
+  // ── Public: initialization (call after React has mounted the player div) ──
 
   async initializeDefaultProvider(): Promise<void> {
     await this.ensureProviderReady();
     await this.subscribeToProvider();
 
+    // App Router navigation can call the room's entry handler after the
+    // private-library player is already loaded or playing. Do not cue the
+    // current track again: that would reset the persistent audio element to
+    // zero and silently pause it during navigation.
+    if (this._providerState.duration > 0 || this._providerState.isPlaying || this._providerState.currentTime > 0) return;
+    
+    // Cue the first song in advance so buffering starts, reducing the 5-sec wait to 1-sec.
     const song = this.currentSong;
     const provider = this.activeProvider;
-    const providerWithCue = provider as unknown as { cue?: (id: string) => Promise<void> };
-    if (song && provider && typeof providerWithCue.cue === "function" && song.playback?.youtubeId) {
-      await providerWithCue.cue(song.playback.youtubeId);
+    const trackRef = song ? this.getTrackRef(song) : null;
+    if (song && provider && typeof provider.cue === "function" && trackRef) {
+      await provider.cue(trackRef);
     }
   }
 
+  // ── Public: subscribe ─────────────────────────────────────────────────────
+  
   subscribe(listener: ManagerListener): () => void {
     this.listeners.add(listener);
-    listener(this.buildState());
+    listener(this.buildState()); // immediate snapshot
     return () => this.listeners.delete(listener);
   }
 
@@ -251,9 +369,13 @@ export class PlaybackManager {
     return () => this.timeListeners.delete(listener);
   }
 
+  // ── Public: getState ──────────────────────────────────────────────────────
+
   getState(): ManagerState {
     return this.buildState();
   }
+
+  // ── Public: teardown ──────────────────────────────────────────────────────
 
   destroy(): void {
     if (this.mediaSessionPositionTimer) {
@@ -264,8 +386,11 @@ export class PlaybackManager {
     this.providerEndedUnsub?.();
     this.providers.forEach((p) => p.destroy());
     this.providers.clear();
+    this.transportHandlers = null;
     this.listeners.clear();
   }
+
+  // ── Private ───────────────────────────────────────────────────────────────
 
   private get activeProvider(): PlaybackProvider | undefined {
     return this.providers.get(this._activeProviderId);
@@ -289,16 +414,17 @@ export class PlaybackManager {
     let lastTime = this._providerState.currentTime;
 
     this.providerUnsub = provider.subscribe((state) => {
-      const isOnlyTimeUpdate =
+      const isOnlyTimeUpdate = 
         this._providerState.isPlaying === state.isPlaying &&
         this._providerState.isLoading === state.isLoading &&
         this._providerState.hasError === state.hasError &&
         this._providerState.volume === state.volume &&
         this._providerState.isMuted === state.isMuted &&
         this._providerState.duration === state.duration;
-
+        
       this._providerState = state;
-
+      this.updateMediaSessionPlaybackState(state.isPlaying);
+      
       if (isOnlyTimeUpdate && Math.abs(state.currentTime - lastTime) > 0.1) {
         lastTime = state.currentTime;
         this.notifyTime();
@@ -308,7 +434,9 @@ export class PlaybackManager {
     });
 
     this.providerEndedUnsub = provider.onEnded(() => {
-      void this.next();
+      // A Jam adapter owns the timeline while installed. In particular, a
+      // guest must never advance its private queue when the local element ends.
+      void (this.transportHandlers ? this.transportHandlers.ended() : this.next());
     });
   }
 
@@ -316,9 +444,12 @@ export class PlaybackManager {
     const song = this.currentSong;
     if (!song) return;
 
-    // Prefer the private R2 file when one exists and is authorized
-    if (song.playback?.r2TrackId && this._activeProviderId !== "r2") {
-      await this.switchProvider("r2");
+    // Prefer private R2 only when this track actually has an authorized R2
+    // reference. When moving back to the curated archive, leave R2 rather than
+    // trying to load a missing private reference.
+    const desiredProvider = this.providerForSong(song);
+    if (desiredProvider !== this._activeProviderId) {
+      await this.switchProvider(desiredProvider, false);
     }
 
     this.updateMediaSession(song);
@@ -352,7 +483,11 @@ export class PlaybackManager {
       return;
     }
 
-    this._providerState = { ...this._providerState, hasError: false, errorMessage: "" };
+    this._providerState = {
+      ...this._providerState,
+      hasError: false,
+      errorMessage: "",
+    };
     this.notify();
 
     if (play) {
@@ -371,12 +506,104 @@ export class PlaybackManager {
     }
   }
 
+  /**
+   * Full Media Session integration for Android: metadata, transport controls,
+   * seek handlers and continuous position-state updates.
+   */
+  private mediaSessionPositionTimer: ReturnType<typeof setInterval> | null = null;
+
+  private updateMediaSession(song: Song): void {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+
+    const artworkSrc = song.artwork?.cover
+      ? song.artwork.cover.startsWith("http")
+        ? song.artwork.cover
+        : `${window.location.origin}${song.artwork.cover}`
+      : `${window.location.origin}/icon.svg`;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title,
+      artist: song.artist,
+      album: song.movie ?? song.album ?? "Only For You",
+      artwork: [{ src: artworkSrc, sizes: "512x512", type: "image/jpeg" }],
+    });
+
+    this.refreshMediaSessionActions();
+
+    if (this.mediaSessionPositionTimer) clearInterval(this.mediaSessionPositionTimer);
+    this.mediaSessionPositionTimer = setInterval(() => {
+      if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+      const { currentTime, duration } = this._providerState;
+      if (!duration || !Number.isFinite(duration) || currentTime < 0 || currentTime > duration) return;
+      try {
+        navigator.mediaSession.setPositionState({
+          duration,
+          position: Math.min(currentTime, duration),
+          playbackRate: 1.0,
+        });
+      } catch {
+        /* position state is best-effort */
+      }
+    }, 1000);
+  }
+
+  private refreshMediaSessionActions(): void {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    const transport = this.transportHandlers;
+    const run = (operation: () => Promise<void>) => {
+      void operation().catch((error) => {
+        this._providerState = {
+          ...this._providerState,
+          hasError: true,
+          errorMessage: error instanceof Error ? error.message : "Media control failed.",
+        };
+        this.notify();
+      });
+    };
+    try {
+      navigator.mediaSession.setActionHandler("play", () => run(transport?.play ?? (() => this.play())));
+      navigator.mediaSession.setActionHandler("pause", () => run(transport?.pause ?? (() => this.pause())));
+      navigator.mediaSession.setActionHandler("previoustrack", () => run(transport?.previous ?? (() => this.previous())));
+      navigator.mediaSession.setActionHandler("nexttrack", () => run(transport?.next ?? (() => this.next())));
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.seekTime != null) run(transport?.seek ? () => transport.seek(details.seekTime!) : () => this.seek(details.seekTime!));
+    });
+    navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+        const target = Math.max(0, this._providerState.currentTime - (details.seekOffset ?? 10));
+        run(transport?.seek ? () => transport.seek(target) : () => this.seek(target));
+    });
+    navigator.mediaSession.setActionHandler("seekforward", (details) => {
+        const target = Math.min(this._providerState.duration, this._providerState.currentTime + (details.seekOffset ?? 10));
+        run(transport?.seek ? () => transport.seek(target) : () => this.seek(target));
+    });
+      navigator.mediaSession.setActionHandler("stop", () => run(transport?.pause ?? (() => this.pause())));
+    } catch {
+      // Some browsers implement only a subset of action names.
+    }
+  }
+
+  private updateMediaSessionPlaybackState(isPlaying: boolean): void {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }
+
+  private providerForSong(song: Song): ProviderId {
+    if (song.playback?.r2TrackId) return "r2";
+    if (this._activeProviderId === "spotify" && this._spotifyConnected && song.playback?.spotifyTrackId) return "spotify";
+    if (song.playback?.youtubeId) return "youtube";
+    if (song.playback?.spotifyTrackId && this._spotifyConnected) return "spotify";
+    if (song.playback?.localPath) return "local";
+    return this._activeProviderId;
+  }
+
   private getTrackRef(song: Song): string | null {
     switch (this._activeProviderId) {
       case "r2":
         return song.playback?.r2TrackId ?? null;
       case "youtube":
         return song.playback?.youtubeId ?? null;
+      case "spotify":
+        return song.playback?.spotifyTrackId ?? null;
       case "local":
         return song.playback?.localPath ?? null;
       default:
@@ -392,68 +619,18 @@ export class PlaybackManager {
           ? "No private audio for this track yet. Try YouTube."
           : "No audio file uploaded for this track yet.";
       case "youtube":
-        return "This track has no YouTube ID yet.";
+        return song?.playback?.spotifyTrackId
+          ? "YouTube ID missing for this track. Try Spotify."
+          : "This track has no playback reference yet.";
+      case "spotify":
+        return song?.playback?.youtubeId
+          ? "Spotify ID missing for this track. Play on YouTube instead."
+          : "This track has no playback reference yet.";
       case "local":
         return "No local audio file for this track.";
       default:
         return "No playback reference available.";
     }
-  }
-
-  /**
-   * Full Media Session integration for Android: metadata, transport controls,
-   * seek handlers and continuous position-state updates.
-   */
-  private mediaSessionPositionTimer: ReturnType<typeof setInterval> | null = null;
-
-  private updateMediaSession(song: Song): void {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-
-    const artworkSrc = song.artwork?.cover
-      ? song.artwork.cover.startsWith("http")
-        ? song.artwork.cover
-        : `${window.location.origin}${song.artwork.cover}`
-      : `${window.location.origin}/favicon.svg`;
-
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: song.title,
-      artist: song.artist,
-      album: song.album ?? "OnlyForYou",
-      artwork: [{ src: artworkSrc, sizes: "512x512", type: "image/jpeg" }],
-    });
-
-    navigator.mediaSession.setActionHandler("play", () => void this.play());
-    navigator.mediaSession.setActionHandler("pause", () => void this.pause());
-    navigator.mediaSession.setActionHandler("previoustrack", () => void this.previous());
-    navigator.mediaSession.setActionHandler("nexttrack", () => void this.next());
-    navigator.mediaSession.setActionHandler("seekto", (details) => {
-      if (details.seekTime != null) void this.seek(details.seekTime);
-    });
-    navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-      void this.seek(Math.max(0, this._providerState.currentTime - (details.seekOffset ?? 10)));
-    });
-    navigator.mediaSession.setActionHandler("seekforward", (details) => {
-      void this.seek(
-        Math.min(this._providerState.duration, this._providerState.currentTime + (details.seekOffset ?? 10)),
-      );
-    });
-    navigator.mediaSession.setActionHandler("stop", () => void this.pause());
-
-    if (this.mediaSessionPositionTimer) clearInterval(this.mediaSessionPositionTimer);
-    this.mediaSessionPositionTimer = setInterval(() => {
-      if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
-      const { isPlaying, currentTime, duration } = this._providerState;
-      if (!duration || !Number.isFinite(duration) || currentTime > duration) return;
-      try {
-        navigator.mediaSession.setPositionState({
-          duration,
-          position: Math.min(currentTime, duration),
-          playbackRate: 1.0,
-        });
-      } catch {
-        /* position state is best-effort */
-      }
-    }, 1000);
   }
 
   private buildShuffleOrder(): void {
@@ -469,6 +646,8 @@ export class PlaybackManager {
       shuffle: this._shuffle,
       repeat: this._repeat,
       activeProvider: this._activeProviderId,
+      spotifyConnected: this._spotifyConnected,
+      spotifyConnecting: this._spotifyConnecting,
       isPlaying: this._providerState.isPlaying,
       currentTime: this._providerState.currentTime,
       duration: this._providerState.duration,
@@ -478,6 +657,7 @@ export class PlaybackManager {
       hasError: this._providerState.hasError,
       errorMessage: this._providerState.errorMessage,
       hasYouTubeId: !!song?.playback?.youtubeId,
+      hasSpotifyId: !!song?.playback?.spotifyTrackId,
       hasR2Track: !!song?.playback?.r2TrackId,
     };
   }
@@ -488,8 +668,6 @@ export class PlaybackManager {
   }
 
   private notifyTime(): void {
-    this.timeListeners.forEach((l) =>
-      l(this._providerState.currentTime, this._providerState.duration)
-    );
+    this.timeListeners.forEach((l) => l(this._providerState.currentTime, this._providerState.duration));
   }
 }

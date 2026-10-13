@@ -1,0 +1,17 @@
+.privateLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 20px 14px;
+  padding: 12px 14px;
+  min-height: 44px;
+  color: var(--tp, #eee6f8);
+  background: var(--ta-soft, #c7a4ec14);
+  border: 1px solid var(--tb, #d7c4ee2b);
+  border-radius: 9px;
+  font-size: 12px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.privateLink:focus-visible { outline: 2px solid var(--ta, #d3b4ef); outline-offset: 3px; }

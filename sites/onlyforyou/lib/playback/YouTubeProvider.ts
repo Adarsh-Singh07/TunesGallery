@@ -1,11 +1,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // YouTube IFrame Player API provider
-// Delivers all audio through YouTube's infrastructure.
+//
+// Uses the official YouTube IFrame Player API. No audio is downloaded.
+// YouTube delivers all audio/video through their own infrastructure.
+//
+// ToS compliance: The YouTube player is embedded visibly in the DOM.
+// We render a small but real YouTube player widget — ADHUREKISSE's custom UI
+// sits alongside it as the primary experience.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { PlaybackProvider, ProviderState, StateListener } from "./types";
+import type {
+  PlaybackProvider,
+  ProviderState,
+  StateListener,
+} from "./types";
 import { DEFAULT_PROVIDER_STATE } from "./types";
 
+// ── Minimal YouTube IFrame API type declarations ──────────────────────────────
 declare global {
   interface Window {
     YT: {
@@ -24,12 +35,13 @@ declare global {
 }
 
 interface YTPlayer {
-  loadVideoById(videoId: string | { videoId: string }): void;
+  loadVideoById(videoId: string | { videoId: string, startSeconds?: number, suggestedQuality?: string }, startSeconds?: number): void;
   cueVideoById(videoId: string): void;
   playVideo(): void;
   pauseVideo(): void;
+  stopVideo(): void;
   seekTo(seconds: number, allowSeekAhead: boolean): void;
-  setVolume(volume: number): void;
+  setVolume(volume: number): void; // 0–100
   mute(): void;
   unMute(): void;
   isMuted(): boolean;
@@ -52,7 +64,10 @@ interface YTConfig {
   };
 }
 
+/** ID of the DOM element the IFrame API attaches to */
 const CONTAINER_ID = "yt-player-mount";
+
+/** Ensure the YT IFrame API script is loaded exactly once */
 let ytScriptLoaded = false;
 
 function loadYTScript(): Promise<void> {
@@ -74,6 +89,8 @@ function loadYTScript(): Promise<void> {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
 export class YouTubeProvider implements PlaybackProvider {
   readonly id = "youtube" as const;
 
@@ -87,6 +104,8 @@ export class YouTubeProvider implements PlaybackProvider {
   get isReady() {
     return this._isReady;
   }
+
+  // ── Initialization ──────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
     if (this._isReady) return;
@@ -106,11 +125,10 @@ export class YouTubeProvider implements PlaybackProvider {
         width: 320,
         playerVars: {
           autoplay: 0,
-          controls: 1,
+          controls: 1,       // show YouTube controls for ToS compliance
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
-          origin: typeof window !== "undefined" ? window.location.origin : "http://localhost:3000",
         },
         events: {
           onReady: () => {
@@ -135,6 +153,8 @@ export class YouTubeProvider implements PlaybackProvider {
     });
   }
 
+  // ── Track loading ───────────────────────────────────────────────────────────
+
   async cue(youtubeId: string): Promise<void> {
     if (!this.player) return;
     if (typeof this.player.cueVideoById === "function") {
@@ -146,7 +166,9 @@ export class YouTubeProvider implements PlaybackProvider {
     if (!this.player) throw new Error("YouTube player not initialized");
     this.patch({ isLoading: true, hasError: false, errorMessage: "", currentTime: 0, duration: 0 });
     if (typeof this.player.loadVideoById === "function") {
-      this.player.loadVideoById({ videoId: youtubeId });
+      this.player.loadVideoById({
+        videoId: youtubeId
+      });
     }
   }
 
@@ -174,7 +196,8 @@ export class YouTubeProvider implements PlaybackProvider {
     if (this.player && typeof this.player.setVolume === "function") {
       this.player.setVolume(Math.round(clamped * 100));
     }
-    if (this._state.isMuted && clamped > 0 && this.player && typeof this.player.unMute === "function") {
+    const wasMuted = this._state.isMuted;
+    if (wasMuted && clamped > 0 && this.player && typeof this.player.unMute === "function") {
       this.player.unMute();
     }
     this.patch({ volume: clamped, isMuted: clamped === 0 });
@@ -203,6 +226,8 @@ export class YouTubeProvider implements PlaybackProvider {
     }
   }
 
+  // ── State ───────────────────────────────────────────────────────────────────
+
   getState(): ProviderState {
     return { ...this._state };
   }
@@ -216,6 +241,8 @@ export class YouTubeProvider implements PlaybackProvider {
     this.endedCallbacks.add(callback);
     return () => this.endedCallbacks.delete(callback);
   }
+
+  // ── Internals ───────────────────────────────────────────────────────────────
 
   private handleStateChange(ytState: number): void {
     const YTState = window.YT?.PlayerState;
@@ -241,6 +268,7 @@ export class YouTubeProvider implements PlaybackProvider {
     }
   }
 
+  /** Poll the player for currentTime and duration (YT has no timeupdate event) */
   private startPolling(): void {
     if (this.pollInterval) return;
     this.pollInterval = setInterval(() => {
@@ -255,7 +283,7 @@ export class YouTubeProvider implements PlaybackProvider {
           this.patch({ currentTime, duration });
         }
       } catch {
-        // ignore
+        // player may not be ready yet — ignore
       }
     }, 250);
   }

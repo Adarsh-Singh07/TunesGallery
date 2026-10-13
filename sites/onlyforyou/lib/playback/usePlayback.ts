@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ManagerState, ProviderId, RepeatMode } from "./types";
 import { DEFAULT_PROVIDER_STATE } from "./types";
 import { PlaybackManager } from "./PlaybackManager";
 import type { Song } from "../../data/songs";
+import { isSpotifyConnected } from "../spotify/pkce";
 
+// ── Stable initial state to prevent hydration mismatch ───────────────────────
 const INITIAL_STATE: ManagerState = {
   currentIndex: 0,
   shuffle: false,
   repeat: "none" as RepeatMode,
-  activeProvider: "youtube",
+  activeProvider: "youtube" as ProviderId,
+  spotifyConnected: false,
+  spotifyConnecting: false,
   isPlaying: false,
   currentTime: 0,
   duration: 0,
@@ -20,8 +24,11 @@ const INITIAL_STATE: ManagerState = {
   hasError: false,
   errorMessage: "",
   hasYouTubeId: false,
+  hasSpotifyId: false,
   hasR2Track: false,
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface PlaybackControls {
   togglePlay: () => void;
@@ -34,6 +41,8 @@ export interface PlaybackControls {
   cycleRepeat: () => void;
   selectSong: (index: number) => void;
   switchProvider: (id: ProviderId) => void;
+  connectSpotify: () => void;
+  disconnectSpotify: () => void;
   initializePlayer: () => void;
   setSongs: (songs: Song[]) => void;
   setRate: (rate: number) => void;
@@ -47,9 +56,13 @@ export function usePlayback(songs: Song[]): {
   const managerRef = useRef<PlaybackManager | null>(null);
   const [state, setState] = useState<ManagerState>(INITIAL_STATE);
 
+  // Create the manager once (client-side only)
   useEffect(() => {
     const mgr = new PlaybackManager(songs);
     managerRef.current = mgr;
+
+    // Sync Spotify connected state from localStorage
+    mgr.markSpotifyConnected(isSpotifyConnected());
 
     const unsub = mgr.subscribe((s) => setState(s));
     const unsubTime = mgr.subscribeTime((currentTime, duration) => {
@@ -63,7 +76,9 @@ export function usePlayback(songs: Song[]): {
       managerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // songs array is stable — PlaybackManager owns it
+
+  // ── Controls ──────────────────────────────────────────────────────────────
 
   const controls: PlaybackControls = useMemo(
     () => ({
@@ -82,6 +97,8 @@ export function usePlayback(songs: Song[]): {
       cycleRepeat: () => managerRef.current?.cycleRepeat(),
       selectSong: (index) => void managerRef.current?.selectSong(index),
       switchProvider: (id) => void managerRef.current?.switchProvider(id),
+      connectSpotify: () => void managerRef.current?.connectSpotify(),
+      disconnectSpotify: () => managerRef.current?.disconnectSpotify(),
       initializePlayer: () => void managerRef.current?.initializeDefaultProvider(),
       setSongs: (songs) => managerRef.current?.setSongs(songs),
       setRate: (rate) => void managerRef.current?.setRate(rate),

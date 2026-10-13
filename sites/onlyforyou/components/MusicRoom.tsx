@@ -206,6 +206,8 @@ export default function MusicRoom() {
         void jam.actions.playTrack(index);
       },
       switchProvider: controls.switchProvider,
+      connectSpotify: controls.connectSpotify,
+      disconnectSpotify: controls.disconnectSpotify,
       initializePlayer: controls.initializePlayer,
       setSongs: controls.setSongs,
       setRate: controls.setRate,

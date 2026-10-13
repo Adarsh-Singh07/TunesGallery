@@ -9,6 +9,7 @@
 // NEVER import this module from client code — it holds the service-role key.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -17,7 +18,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 export function extractBearerToken(req: Request): string | null {
   const header = req.headers.get("authorization") ?? "";
-  const match = /^Bearer\s+(.+)$/i.exec(header);
+  const match = /^Bearer ([A-Za-z0-9._~+/-]+=*)$/i.exec(header);
   return match ? match[1].trim() : null;
 }
 
@@ -29,7 +30,7 @@ export function userClient(accessToken: string): SupabaseClient {
   });
 }
 
-/** Service-role client — bypasses RLS. Server-side only, for R2 bookkeeping. */
+/** Service-role client — only for checked library publication, GC and Auth invitations. */
 export function serviceClient(): SupabaseClient {
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
@@ -49,8 +50,7 @@ export interface AuthContext {
 
 /**
  * Authenticate the request and load the caller's profile.
- * Returns null when the token is missing/invalid or the user has no profile
- * (i.e. was never invited).
+ * Returns null when identity validation or confirmed-account activation fails.
  */
 export async function requireUser(req: Request): Promise<AuthContext | null> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
@@ -60,14 +60,24 @@ export async function requireUser(req: Request): Promise<AuthContext | null> {
 
   const db = userClient(token);
   const { data: userData, error } = await db.auth.getUser(token);
-  if (error || !userData.user) return null;
+  if (error || !userData.user || userData.user.is_anonymous) return null;
 
-  const { data: profile } = await db
+  let { data: profile } = await db
     .from("profiles")
-    .select("id, email, is_admin")
+    .select("id, email, is_admin, is_active")
     .eq("id", userData.user.id)
     .single();
-  if (!profile) return null; // signed up but never invited / provisioned
+  if (!profile?.is_active) {
+    // Inactive profiles are normally hidden by RLS. Only the RPC may decide
+    // whether this is an eligible registration or a disabled/legacy account;
+    // a missing visible row is never itself permission to activate.
+    const { data: accepted, error: acceptanceError } = await db.rpc("activate_account");
+    if (acceptanceError || accepted !== true) return null;
+    const result = await db.from("profiles").select("id, email, is_admin, is_active").eq("id", userData.user.id).single();
+    if (result.error) return null;
+    profile = result.data;
+  }
+  if (!profile?.is_active || profile.id !== userData.user.id) return null;
 
   return {
     userId: profile.id,
@@ -78,9 +88,9 @@ export async function requireUser(req: Request): Promise<AuthContext | null> {
 }
 
 export function unauthorized(message = "Unauthorized") {
-  return Response.json({ error: message }, { status: 401 });
+  return Response.json({ error: message }, { status: 401, headers: { "Cache-Control": "no-store" } });
 }
 
 export function forbidden(message = "Forbidden") {
-  return Response.json({ error: message }, { status: 403 });
+  return Response.json({ error: message }, { status: 403, headers: { "Cache-Control": "no-store" } });
 }
